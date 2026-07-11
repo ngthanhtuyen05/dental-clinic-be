@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  database:
+    container_name: database
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: dental_clinic
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    container_name: server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: ${NODE_ENV:-development}
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root_password
+      DB_NAME: dental_clinic
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@dentalclinic.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123456}
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
