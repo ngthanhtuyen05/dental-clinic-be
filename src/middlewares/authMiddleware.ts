@@ -1,13 +1,14 @@
-import { Request, Response, NextFunction } from 'express';
-import type { UserModel } from '../models/userModel.js';
+import { Response, NextFunction } from 'express';
+import type { AuthenticatedRequest } from '../types/index.js';
 import { userRepository } from '../repositories/userRepository.js';
 import AppError from '../utils/AppError.js';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { UserRole } from '../constants/enums.js';
+import HttpStatus from '../constants/httpStatus.js';
+import Messages from '../constants/messages.js';
 
-export interface AuthenticatedRequest extends Request {
-  user?: UserModel;
-}
+// Re-export để các file khác import từ đây không bị break
+export type { AuthenticatedRequest };
 
 export const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -18,7 +19,7 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
     }
 
     if (!token) {
-      return next(new AppError('Bạn chưa đăng nhập! Vui lòng đăng nhập để truy cập.', 401));
+      return next(new AppError(Messages.AUTH.UNAUTHORIZED, HttpStatus.UNAUTHORIZED));
     }
 
     // 2. Xác thực token
@@ -27,7 +28,7 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
     // 3. Kiểm tra xem user có còn tồn tại không
     const currentUser = await userRepository.findById(decoded.id, { includePassword: false });
     if (!currentUser) {
-      return next(new AppError('Tài khoản liên kết với token này đã bị xóa.', 401));
+      return next(new AppError(Messages.AUTH.ACCOUNT_DELETED, HttpStatus.UNAUTHORIZED));
     }
 
     // 4. Lưu thông tin user vào request để dùng ở các middleware/controller tiếp theo
@@ -35,10 +36,10 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
     next();
   } catch (error: any) {
     if (error.name === 'JsonWebTokenError') {
-      return next(new AppError('Token không hợp lệ! Vui lòng đăng nhập lại.', 401));
+      return next(new AppError(Messages.AUTH.TOKEN_INVALID, HttpStatus.UNAUTHORIZED));
     }
     if (error.name === 'TokenExpiredError') {
-      return next(new AppError('Phiên đăng nhập đã hết hạn! Vui lòng làm mới token.', 401));
+      return next(new AppError(Messages.AUTH.TOKEN_EXPIRED, HttpStatus.UNAUTHORIZED));
     }
     next(error);
   }
@@ -47,11 +48,11 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
 export const restrictTo = (...roles: UserRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return next(new AppError('Bạn chưa đăng nhập!', 401));
+      return next(new AppError(Messages.AUTH.UNAUTHORIZED, HttpStatus.UNAUTHORIZED));
     }
     
     if (!roles.includes(req.user.role)) {
-      return next(new AppError('Bạn không có quyền truy cập tài nguyên này.', 403));
+      return next(new AppError(Messages.AUTH.FORBIDDEN, HttpStatus.FORBIDDEN));
     }
 
     next();
@@ -60,7 +61,7 @@ export const restrictTo = (...roles: UserRole[]) => {
 
 export const restrictToOwnerOrAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
   if (!req.user) {
-    return next(new AppError('Bạn chưa đăng nhập!', 401));
+    return next(new AppError(Messages.AUTH.UNAUTHORIZED, HttpStatus.UNAUTHORIZED));
   }
 
   const userIdParam = parseInt(req.params.id as string, 10);
@@ -72,7 +73,7 @@ export const restrictToOwnerOrAdmin = (req: AuthenticatedRequest, res: Response,
 
   // Nếu không phải Admin, kiểm tra xem ID của user đăng nhập có trùng với ID trong params hay không
   if (req.user.id !== userIdParam) {
-    return next(new AppError('Bạn không có quyền cập nhật thông tin của người khác.', 403));
+    return next(new AppError(Messages.AUTH.FORBIDDEN_UPDATE, HttpStatus.FORBIDDEN));
   }
 
   next();

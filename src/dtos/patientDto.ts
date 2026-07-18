@@ -1,10 +1,11 @@
-import { Gender } from '../constants/enums.js';
+import { Gender, PatientStatus } from '../constants/enums.js';
 
 // Request DTOs
 export interface PatientQueryDto {
   page?: number;
   limit?: number;
   keyword?: string;
+  status?: string;
 }
 
 export interface CreatePatientRequestDto {
@@ -97,7 +98,7 @@ export class PatientResponseDto {
     this.dateOfBirth = dob ? new Date(dob).toISOString().split('T')[0] : '';
     this.history = profile?.allergies || 'Không có';
     this.lastVisit = lastVisit ? new Date(lastVisit).toISOString().split('T')[0] : '';
-    this.status = 'active';
+    this.status = profile?.status || PatientStatus.ACTIVE;
     this.profileDetails = {
       emergencyContactName: profile?.emergencyContactName || '',
       emergencyContactPhone: profile?.emergencyContactPhone || '',

@@ -1,4 +1,6 @@
 import { UserRole } from '../constants/enums.js';
+import HttpStatus from '../constants/httpStatus.js';
+import Messages from '../constants/messages.js';
 import type { AuthResponseDto, LoginRequestDto, RegisterUserRequestDto, TokenPairDto } from '../dtos/userDto.js';
 import { refreshTokenRepository } from '../repositories/refreshTokenRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
@@ -25,12 +27,12 @@ export const loginUser = async (credentials: LoginRequestDto): Promise<AuthRespo
 
   const user = await userRepository.findByEmail(email);
   if (!user) {
-    throw new AppError('Invalid email or password', 401);
+    throw new AppError(Messages.AUTH.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
   }
 
   const isMatch = await comparePassword(password, user.password);
   if (!isMatch) {
-    throw new AppError('Invalid email or password', 401);
+    throw new AppError(Messages.AUTH.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
   }
 
   const tokens = await createTokenPair(user.id);
@@ -45,7 +47,7 @@ export const refreshUserToken = async (token: string): Promise<TokenPairDto> => 
 
     if (!storedToken || storedToken.expiresAt < new Date()) {
       if (storedToken) await refreshTokenRepository.destroyInstance(storedToken);
-      throw new AppError('Phiên đăng nhập đã hết hạn hoặc không hợp lệ', 403);
+      throw new AppError(Messages.AUTH.SESSION_EXPIRED, HttpStatus.FORBIDDEN);
     }
 
     // Token Rotation: xóa cũ, tạo mới
@@ -53,7 +55,7 @@ export const refreshUserToken = async (token: string): Promise<TokenPairDto> => 
     return await createTokenPair(decoded.id);
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError('Phiên đăng nhập đã hết hạn hoặc không hợp lệ', 403);
+    throw new AppError(Messages.AUTH.SESSION_EXPIRED, HttpStatus.FORBIDDEN);
   }
 };
 
@@ -62,7 +64,7 @@ export const registerUser = async (registerData: RegisterUserRequestDto): Promis
 
   const existingUser = await userRepository.findByEmail(email);
   if (existingUser) {
-    throw new AppError('Email đã được sử dụng bởi một tài khoản khác', 400);
+    throw new AppError(Messages.AUTH.EMAIL_TAKEN, HttpStatus.BAD_REQUEST);
   }
 
   const hashedPassword = await hashPassword(password);

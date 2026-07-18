@@ -1,15 +1,12 @@
+// Import env config ĐẦU TIÊN — validate env variables trước khi làm bất cứ gì
+import env from './config/env.js';
+
 import app from './app.js';
-import dotenv from 'dotenv';
 import sequelize, { connectDB } from './config/db.js';
 import { seedAdmin } from './utils/seeder.js';
 
 // Import model registry — đăng ký tất cả models + associations tập trung
 import './models/index.js';
-
-// Cấu hình dotenv để đọc file .env
-dotenv.config();
-
-const PORT = process.env.PORT || 5000;
 
 const startServer = async (): Promise<void> => {
   try {
@@ -26,9 +23,9 @@ const startServer = async (): Promise<void> => {
     await seedAdmin();
 
     // 3. Khởi chạy server lắng nghe
-    app.listen(PORT, () => {
-      console.log(`[Server] running on http://localhost:${PORT}`);
-      console.log(`[Server] Environment: ${process.env.NODE_ENV}`);
+    app.listen(env.PORT, () => {
+      console.log(`[Server] running on http://localhost:${env.PORT}`);
+      console.log(`[Server] Environment: ${env.NODE_ENV}`);
     });
   } catch (error: any) {
     console.error('[Server] Failed to start server:', error.message);

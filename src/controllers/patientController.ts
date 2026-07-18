@@ -1,17 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import * as patientService from '../services/patientService.js';
 import { PatientResponseDto } from '../dtos/patientDto.js';
+import HttpStatus from '../constants/httpStatus.js';
 
 export const getPatients = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 10;
     const keyword = (req.query.keyword as string) || '';
+    const status = (req.query.status as string) || '';
 
-    const result = await patientService.getAllPatients({ page, limit, keyword });
+    const result = await patientService.getAllPatients({ page, limit, keyword, status });
     const formatted = PatientResponseDto.toList(result.patients);
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       results: formatted.length,
       data: formatted,
@@ -31,7 +33,7 @@ export const getPatient = async (req: Request, res: Response, next: NextFunction
   try {
     const id = parseInt(req.params.id as string, 10);
     const patient = await patientService.getPatientById(id);
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: new PatientResponseDto(patient),
     });
@@ -43,7 +45,7 @@ export const getPatient = async (req: Request, res: Response, next: NextFunction
 export const createPatient = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const patient = await patientService.createNewPatient(req.body);
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: new PatientResponseDto(patient),
     });
@@ -56,7 +58,7 @@ export const updatePatient = async (req: Request, res: Response, next: NextFunct
   try {
     const id = parseInt(req.params.id as string, 10);
     const patient = await patientService.updatePatient(id, req.body);
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: new PatientResponseDto(patient),
     });
@@ -69,7 +71,7 @@ export const deletePatient = async (req: Request, res: Response, next: NextFunct
   try {
     const id = parseInt(req.params.id as string, 10);
     await patientService.deletePatient(id);
-    res.status(204).json({
+    res.status(HttpStatus.NO_CONTENT).json({
       status: 'success',
       data: null,
     });

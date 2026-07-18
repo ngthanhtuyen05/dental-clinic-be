@@ -5,6 +5,7 @@ import { TreatmentHistoryResponseDto } from '../dtos/treatmentHistoryDto.js';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import AppError from '../utils/AppError.js';
 import { UserRole } from '../constants/enums.js';
+import HttpStatus from '../constants/httpStatus.js';
 
 export const getTreatmentsByProfileId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -15,12 +16,12 @@ export const getTreatmentsByProfileId = async (req: Request, res: Response, next
     if (authReq.user && authReq.user.role === UserRole.PATIENT) {
       const profile = await patientProfileRepository.findById(profileId);
       if (!profile || profile.userId !== authReq.user.id) {
-        throw new AppError('Bạn không có quyền xem lịch sử điều trị của hồ sơ này.', 403);
+        throw new AppError('Bạn không có quyền xem lịch sử điều trị của hồ sơ này.', HttpStatus.FORBIDDEN);
       }
     }
 
     const list = await treatmentHistoryService.getTreatmentHistoriesByProfileId(profileId);
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       results: list.length,
       data: { treatments: TreatmentHistoryResponseDto.toList(list) },
@@ -46,7 +47,7 @@ export const createTreatment = async (req: Request, res: Response, next: NextFun
     }
 
     const record = await treatmentHistoryService.createTreatmentHistory(payload);
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: { treatment: new TreatmentHistoryResponseDto(record) },
     });
@@ -65,11 +66,11 @@ export const getTreatmentDetail = async (req: Request, res: Response, next: Next
     // Phân quyền kiểm tra: Nếu là bệnh nhân, phải là người sở hữu profile trong record
     if (authReq.user && authReq.user.role === UserRole.PATIENT) {
       if (record.patientProfile && record.patientProfile.userId !== authReq.user.id) {
-        throw new AppError('Bạn không có quyền xem chi tiết đợt điều trị này.', 403);
+        throw new AppError('Bạn không có quyền xem chi tiết đợt điều trị này.', HttpStatus.FORBIDDEN);
       }
     }
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: { treatment: new TreatmentHistoryResponseDto(record) },
     });
@@ -88,12 +89,12 @@ export const updateTreatment = async (req: Request, res: Response, next: NextFun
     // Phân quyền kiểm tra: Chỉ admin hoặc nha sĩ trực tiếp điều trị mới được sửa
     if (authReq.user && authReq.user.role !== UserRole.ADMIN) {
       if (authReq.user.role !== UserRole.DENTIST || record.dentistId !== authReq.user.id) {
-        throw new AppError('Bạn không có quyền chỉnh sửa đợt điều trị này.', 403);
+        throw new AppError('Bạn không có quyền chỉnh sửa đợt điều trị này.', HttpStatus.FORBIDDEN);
       }
     }
 
     const updatedRecord = await treatmentHistoryService.updateTreatmentHistory(id, req.body);
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: { treatment: new TreatmentHistoryResponseDto(updatedRecord) },
     });
@@ -106,7 +107,7 @@ export const deleteTreatment = async (req: Request, res: Response, next: NextFun
   try {
     const id = parseInt(req.params.id as string, 10);
     await treatmentHistoryService.deleteTreatmentHistory(id);
-    res.status(204).json({
+    res.status(HttpStatus.NO_CONTENT).json({
       status: 'success',
       data: null,
     });

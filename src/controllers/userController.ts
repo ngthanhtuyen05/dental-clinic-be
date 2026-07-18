@@ -3,11 +3,13 @@ import * as userService from '../services/userService.js';
 import { UserResponseDto } from '../dtos/userDto.js';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { UserRole } from '../constants/enums.js';
+import HttpStatus from '../constants/httpStatus.js';
+import Messages from '../constants/messages.js';
 
 export const getUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const users = await userService.getAllUsers();
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       results: users.length,
       data: { users: UserResponseDto.toList(users) },
@@ -23,14 +25,14 @@ export const getUser = async (req: Request, res: Response, next: NextFunction): 
     const user = await userService.getUserById(id);
     
     if (!user) {
-      res.status(404).json({
+      res.status(HttpStatus.NOT_FOUND).json({
         status: 'fail',
-        message: 'User not found',
+        message: Messages.CRUD.NOT_FOUND('User'),
       });
       return;
     }
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: { user: new UserResponseDto(user) },
     });
@@ -42,7 +44,7 @@ export const getUser = async (req: Request, res: Response, next: NextFunction): 
 export const createUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const newUser = await userService.createNewUser(req.body);
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: { user: new UserResponseDto(newUser) },
     });
@@ -65,14 +67,14 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
     const updatedUser = await userService.updateUser(id, updateData);
     
     if (!updatedUser) {
-      res.status(404).json({
+      res.status(HttpStatus.NOT_FOUND).json({
         status: 'fail',
-        message: 'User not found',
+        message: Messages.CRUD.NOT_FOUND('User'),
       });
       return;
     }
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: { user: new UserResponseDto(updatedUser) },
     });
@@ -87,14 +89,14 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
     const success = await userService.deleteUser(id);
     
     if (!success) {
-      res.status(404).json({
+      res.status(HttpStatus.NOT_FOUND).json({
         status: 'fail',
-        message: 'User not found',
+        message: Messages.CRUD.NOT_FOUND('User'),
       });
       return;
     }
 
-    res.status(204).json({
+    res.status(HttpStatus.NO_CONTENT).json({
       status: 'success',
       data: null,
     });

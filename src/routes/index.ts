@@ -5,6 +5,9 @@ import appointmentRoutes from './appointmentRoutes.js';
 import patientProfileRoutes from './patientProfileRoutes.js';
 import treatmentHistoryRoutes from './treatmentHistoryRoutes.js';
 import patientRoutes from './patientRoutes.js';
+import serviceRoutes from './serviceRoutes.js';
+import staffRoutes from './staffRoutes.js';
+import specialtyRoutes from './specialtyRoutes.js';
 
 const router = express.Router();
 
@@ -26,6 +29,9 @@ router.use('/users', userRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/patient-profiles', patientProfileRoutes);
 router.use('/patients', patientRoutes);
+router.use('/services', serviceRoutes);
+router.use('/staff', staffRoutes);
+router.use('/specialties', specialtyRoutes);
 router.use('/', treatmentHistoryRoutes);
 
 export default router;

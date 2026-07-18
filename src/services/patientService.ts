@@ -13,9 +13,11 @@ export const getAllPatients = async (query: PatientQueryDto): Promise<PaginatedP
   const offset = (page - 1) * limit;
 
   const searchWhere = patientRepository.buildSearchWhere(query.keyword);
+  const profileWhere = patientRepository.buildStatusWhere(query.status);
 
   const { rows, count } = await patientRepository.findAndCount({
     where: searchWhere,
+    profileWhere,
     limit,
     offset,
   });

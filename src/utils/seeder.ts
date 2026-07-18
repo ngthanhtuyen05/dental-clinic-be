@@ -1,11 +1,13 @@
 import bcrypt from 'bcrypt';
 import User from '../models/userModel.js';
 import { UserRole } from '../constants/enums.js';
+import env from '../config/env.js';
+import Messages from '../constants/messages.js';
 
 export const seedAdmin = async (): Promise<void> => {
   try {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@dentalclinic.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123456';
+    const adminEmail = env.ADMIN_EMAIL;
+    const adminPassword = env.ADMIN_PASSWORD;
 
     // Check if an admin already exists in the system
     const adminExists = await User.findOne({
@@ -23,7 +25,7 @@ export const seedAdmin = async (): Promise<void> => {
       });
 
       if (emailExists) {
-        console.log(`[Seeder] Email ${adminEmail} is already taken by another user. Admin seeding skipped.`);
+        console.log(`[Seeder] ${Messages.SEEDER.EMAIL_TAKEN(adminEmail)}`);
         return;
       }
 
@@ -40,11 +42,11 @@ export const seedAdmin = async (): Promise<void> => {
         role: UserRole.ADMIN,
       });
 
-      console.log('[Seeder] Default admin account successfully seeded!');
+      console.log(`[Seeder] ${Messages.SEEDER.ADMIN_SEEDED}`);
       console.log(`- Email: ${adminEmail}`);
       console.log(`- Password: ${adminPassword}`);
     } else {
-      console.log('[Seeder] Admin account already exists. Seeding skipped.');
+      console.log(`[Seeder] ${Messages.SEEDER.ADMIN_EXISTS}`);
     }
   } catch (error: any) {
     console.error('[Seeder] Error seeding admin account:', error.message);

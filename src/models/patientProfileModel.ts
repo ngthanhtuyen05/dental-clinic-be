@@ -1,6 +1,6 @@
 import { Model, DataTypes, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
 import sequelize from '../config/db.js';
-import { Gender } from '../constants/enums.js';
+import { Gender, PatientStatus } from '../constants/enums.js';
 
 export interface PatientProfileModel extends Model<InferAttributes<PatientProfileModel>, InferCreationAttributes<PatientProfileModel>> {
   id: CreationOptional<number>;
@@ -26,6 +26,7 @@ export interface PatientProfileModel extends Model<InferAttributes<PatientProfil
   // Tiền sử nha khoa & lý do khám
   dentalHistory: CreationOptional<string | null>;     // Tiền sử làm răng trước đây (Niềng răng, Implant...)
   chiefComplaint: CreationOptional<string | null>;    // Lý do chính đến khám (Đau răng, Thẩm mỹ sứ, Niềng răng...)
+  status: CreationOptional<PatientStatus>;             // Trạng thái bệnh nhân (active/inactive)
   
   createdAt?: CreationOptional<Date>;
   updatedAt?: CreationOptional<Date>;
@@ -101,6 +102,11 @@ const PatientProfile = sequelize.define<PatientProfileModel>('PatientProfile', {
   chiefComplaint: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  status: {
+    type: DataTypes.ENUM(...Object.values(PatientStatus)),
+    allowNull: false,
+    defaultValue: PatientStatus.ACTIVE,
   },
 }, {
   timestamps: true,

@@ -2,11 +2,12 @@ import User from '../models/userModel.js';
 import PatientProfile from '../models/patientProfileModel.js';
 import TreatmentHistory from '../models/treatmentHistoryModel.js';
 import { Op, type WhereOptions } from 'sequelize';
-import { UserRole } from '../constants/enums.js';
+import { PatientStatus, UserRole } from '../constants/enums.js';
 
 export class PatientRepository {
   async findAndCount(options: {
     where?: WhereOptions;
+    profileWhere?: WhereOptions;
     limit: number;
     offset: number;
   }) {
@@ -17,6 +18,7 @@ export class PatientRepository {
         {
           model: PatientProfile,
           as: 'patientProfile',
+          where: options.profileWhere || undefined,
           include: [
             {
               model: TreatmentHistory,
@@ -70,6 +72,11 @@ export class PatientRepository {
         { phone: { [Op.like]: kw } },
       ],
     } as any;
+  }
+
+  buildStatusWhere(status?: string): WhereOptions | undefined {
+    if (!status || !Object.values(PatientStatus).includes(status as PatientStatus)) return undefined;
+    return { status } as any;
   }
 }
 

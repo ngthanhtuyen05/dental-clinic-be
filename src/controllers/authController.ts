@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/authService.js';
 import { UserResponseDto } from '../dtos/userDto.js';
+import HttpStatus from '../constants/httpStatus.js';
+import Messages from '../constants/messages.js';
 
 export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { accessToken, refreshToken, user } = await authService.loginUser(req.body);
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       accessToken,
       refreshToken,
@@ -21,7 +23,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
     const { refreshToken: token } = req.body;
     const tokens = await authService.refreshUserToken(token);
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       ...tokens,
     });
@@ -33,7 +35,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { accessToken, refreshToken, user } = await authService.registerUser(req.body);
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       status: 'success',
       accessToken,
       refreshToken,
@@ -50,9 +52,9 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
     if (token) {
       await authService.logoutUser(token);
     }
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
-      message: 'Đăng xuất thành công',
+      message: Messages.AUTH.LOGOUT_SUCCESS,
     });
   } catch (error) {
     next(error);

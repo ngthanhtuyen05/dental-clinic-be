@@ -4,6 +4,8 @@ import { PatientProfileResponseDto } from '../dtos/patientProfileDto.js';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import AppError from '../utils/AppError.js';
 import { UserRole } from '../constants/enums.js';
+import HttpStatus from '../constants/httpStatus.js';
+import Messages from '../constants/messages.js';
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -12,19 +14,19 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 
     // Phân quyền: Chỉ admin, dentist, staff hoặc chính bệnh nhân đó mới được xem
     if (authReq.user && authReq.user.role === UserRole.PATIENT && authReq.user.id !== userId) {
-      throw new AppError('Bạn không có quyền xem hồ sơ bệnh án của người khác.', 403);
+      throw new AppError('Bạn không có quyền xem hồ sơ bệnh án của người khác.', HttpStatus.FORBIDDEN);
     }
 
     const profile = await patientProfileService.getPatientProfileByUserId(userId);
     if (!profile) {
-      res.status(404).json({
+      res.status(HttpStatus.NOT_FOUND).json({
         status: 'fail',
-        message: 'Hồ sơ bệnh án cho người dùng này chưa được khởi tạo.',
+        message: Messages.CRUD.NOT_FOUND('Hồ sơ bệnh án'),
       });
       return;
     }
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: { profile: new PatientProfileResponseDto(profile) },
     });
@@ -43,7 +45,7 @@ export const createProfile = async (req: Request, res: Response, next: NextFunct
     }
 
     const profile = await patientProfileService.createPatientProfile(req.body);
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: { profile: new PatientProfileResponseDto(profile) },
     });
@@ -59,11 +61,11 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
 
     // Phân quyền: Chỉ admin, dentist, staff hoặc chính bệnh nhân đó mới có quyền sửa
     if (authReq.user && authReq.user.role === UserRole.PATIENT && authReq.user.id !== userId) {
-      throw new AppError('Bạn không có quyền cập nhật hồ sơ của người khác.', 403);
+      throw new AppError('Bạn không có quyền cập nhật hồ sơ của người khác.', HttpStatus.FORBIDDEN);
     }
 
     const profile = await patientProfileService.updatePatientProfile(userId, req.body);
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: { profile: new PatientProfileResponseDto(profile) },
     });
