@@ -79,3 +79,16 @@ export const deletePatient = async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 };
+
+export const togglePatientStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const patient = await patientService.togglePatientStatus(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: new PatientResponseDto(patient),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -12,10 +12,20 @@ export enum Gender {
 }
 
 export enum AppointmentStatus {
-  PENDING = 'pending',
+  SCHEDULED = 'scheduled',
   CONFIRMED = 'confirmed',
+  CHECKED_IN = 'checked_in',
+  IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+  NO_SHOW = 'no_show',
+}
+
+export enum AppointmentType {
+  REGULAR = 'regular',
+  WALK_IN = 'walk_in',
+  FOLLOW_UP = 'follow_up',
+  EMERGENCY = 'emergency',
 }
 
 export enum PatientStatus {

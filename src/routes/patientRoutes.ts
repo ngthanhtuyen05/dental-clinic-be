@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPatients, getPatient, createPatient, updatePatient, deletePatient } from '../controllers/patientController.js';
+import { getPatients, getPatient, createPatient, updatePatient, deletePatient, togglePatientStatus } from '../controllers/patientController.js';
 import { protect, restrictTo } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validate.js';
 import { createPatientSchema, updatePatientSchema } from '../validations/patientValidation.js';
@@ -17,5 +17,8 @@ router.route('/:id')
   .get(restrictTo(UserRole.ADMIN, UserRole.DENTIST, UserRole.STAFF), getPatient)
   .patch(restrictTo(UserRole.ADMIN, UserRole.DENTIST, UserRole.STAFF), validate(updatePatientSchema), updatePatient)
   .delete(restrictTo(UserRole.ADMIN), deletePatient);
+
+router.route('/:id/toggle-status')
+  .patch(restrictTo(UserRole.ADMIN, UserRole.STAFF), togglePatientStatus);
 
 export default router;

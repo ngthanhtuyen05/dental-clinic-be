@@ -24,6 +24,13 @@ User.hasMany(Appointment, { as: 'appointmentsAsDentist', foreignKey: 'dentistId'
 Appointment.belongsTo(User, { as: 'patient', foreignKey: 'patientId' });
 Appointment.belongsTo(User, { as: 'dentist', foreignKey: 'dentistId' });
 
+User.hasMany(Appointment, { as: 'appointmentsCreated', foreignKey: 'createdBy' });
+Appointment.belongsTo(User, { as: 'creator', foreignKey: 'createdBy' });
+
+// Service ↔ Appointment (1:N)
+Service.hasMany(Appointment, { foreignKey: 'serviceId', as: 'appointments' });
+Appointment.belongsTo(Service, { foreignKey: 'serviceId', as: 'service' });
+
 // PatientProfile ↔ TreatmentHistory (1:N)
 PatientProfile.hasMany(TreatmentHistory, { foreignKey: 'patientProfileId', as: 'treatmentHistories' });
 TreatmentHistory.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as: 'patientProfile' });

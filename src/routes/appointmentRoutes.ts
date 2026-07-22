@@ -1,18 +1,38 @@
 import express from 'express';
-import { getAppointments, createAppointment } from '../controllers/appointmentController.js';
+import {
+  getAppointments,
+  createAppointment,
+  getAppointment,
+  updateAppointment,
+  updateAppointmentStatus,
+  getTodayStats,
+  getAvailableSlots,
+} from '../controllers/appointmentController.js';
 import { validate } from '../middlewares/validate.js';
-import { createAppointmentSchema } from '../validations/appointmentValidation.js';
-
+import {
+  createAppointmentSchema,
+  updateAppointmentSchema,
+  updateAppointmentStatusSchema,
+} from '../validations/appointmentValidation.js';
 import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Tất cả các lịch hẹn yêu cầu đăng nhập trước khi thực hiện
+// Yêu cầu đăng nhập cho toàn bộ API Lịch hẹn
 router.use(protect);
+
+// Các route tĩnh cần đặt trước route động /:id
+router.get('/today-stats', getTodayStats);
+router.get('/available-slots', getAvailableSlots);
 
 router.route('/')
   .get(getAppointments)
   .post(validate(createAppointmentSchema), createAppointment);
 
-export default router;
+router.route('/:id')
+  .get(getAppointment)
+  .patch(validate(updateAppointmentSchema), updateAppointment);
 
+router.patch('/:id/status', validate(updateAppointmentStatusSchema), updateAppointmentStatus);
+
+export default router;

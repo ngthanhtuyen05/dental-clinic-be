@@ -1,16 +1,59 @@
 import { Request, Response, NextFunction } from 'express';
-import { getAllAppointments, createNewAppointment } from '../services/appointmentService.js';
+import * as appointmentService from '../services/appointmentService.js';
 import { AppointmentResponseDto } from '../dtos/appointmentDto.js';
 import HttpStatus from '../constants/httpStatus.js';
 import Messages from '../constants/messages.js';
+import { AppointmentStatus, AppointmentType } from '../constants/enums.js';
 
 export const getAppointments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const appointments = await getAllAppointments();
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const keyword = (req.query.keyword as string) || '';
+    const status = (req.query.status as AppointmentStatus) || undefined;
+    const type = (req.query.type as AppointmentType) || undefined;
+    const doctorId = req.query.doctorId ? parseInt(req.query.doctorId as string, 10) : undefined;
+    const dateFrom = (req.query.dateFrom as string) || undefined;
+    const dateTo = (req.query.dateTo as string) || undefined;
+    const appointmentDate = (req.query.appointmentDate as string) || undefined;
+
+    const result = await appointmentService.getAllAppointments({
+      page,
+      limit,
+      keyword,
+      status,
+      type,
+      doctorId,
+      dateFrom,
+      dateTo,
+      appointmentDate,
+    });
+
+    const formatted = AppointmentResponseDto.toList(result.appointments);
+
     res.status(HttpStatus.OK).json({
       status: 'success',
-      results: appointments.length,
-      data: { appointments: AppointmentResponseDto.toList(appointments) },
+      results: formatted.length,
+      data: formatted,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAppointment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const appointment = await appointmentService.getAppointmentById(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: new AppointmentResponseDto(appointment),
     });
   } catch (error) {
     next(error);
@@ -19,19 +62,76 @@ export const getAppointments = async (req: Request, res: Response, next: NextFun
 
 export const createAppointment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const newAppointment = await createNewAppointment(req.body);
+    // Lấy ID người tạo từ middleware bảo mật (protect)
+    const currentUserId = (req as any).user?.id;
     
-    if (!newAppointment) {
-      res.status(HttpStatus.NOT_FOUND).json({
+    const appointment = await appointmentService.createNewAppointment(req.body, currentUserId);
+    res.status(HttpStatus.CREATED).json({
+      status: 'success',
+      data: new AppointmentResponseDto(appointment),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateAppointment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const appointment = await appointmentService.updateAppointment(id, req.body);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: new AppointmentResponseDto(appointment),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateAppointmentStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { status, cancelReason } = req.body;
+    
+    const appointment = await appointmentService.updateAppointmentStatus(id, status, cancelReason);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: new AppointmentResponseDto(appointment),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTodayStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const stats = await appointmentService.getTodayStats();
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAvailableSlots = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const dentistId = parseInt(req.query.dentistId as string, 10);
+    const date = req.query.date as string;
+
+    if (isNaN(dentistId) || !date) {
+      res.status(HttpStatus.BAD_REQUEST).json({
         status: 'fail',
-        message: Messages.CRUD.NOT_FOUND('Patient or Dentist'),
+        message: 'Thiếu thông tin bác sĩ (dentistId) hoặc ngày khám (date)',
       });
       return;
     }
 
-    res.status(HttpStatus.CREATED).json({
+    const slots = await appointmentService.getAvailableSlots(dentistId, date);
+    res.status(HttpStatus.OK).json({
       status: 'success',
-      data: { appointment: new AppointmentResponseDto(newAppointment) },
+      data: slots,
     });
   } catch (error) {
     next(error);

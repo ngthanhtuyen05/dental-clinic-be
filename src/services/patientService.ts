@@ -4,7 +4,7 @@ import { patientProfileRepository } from '../repositories/patientProfileReposito
 import { hashPassword } from '../utils/password.js';
 import sequelize from '../config/db.js';
 import AppError from '../utils/AppError.js';
-import { UserRole } from '../constants/enums.js';
+import { UserRole, PatientStatus } from '../constants/enums.js';
 import type { PatientQueryDto, CreatePatientRequestDto, UpdatePatientRequestDto, PaginatedPatientsDto } from '../dtos/patientDto.js';
 
 export const getAllPatients = async (query: PatientQueryDto): Promise<PaginatedPatientsDto> => {
@@ -142,4 +142,24 @@ export const deletePatient = async (id: number) => {
   }
   await userRepository.delete(patient);
   return true;
+};
+
+export const togglePatientStatus = async (id: number) => {
+  const patient = await patientRepository.findById(id);
+  if (!patient) {
+    throw new AppError('Không tìm thấy bệnh nhân.', 404);
+  }
+
+  const profile = (patient as any).patientProfile;
+  if (!profile) {
+    throw new AppError('Không tìm thấy hồ sơ bệnh nhân.', 404);
+  }
+
+  const newStatus = profile.status === PatientStatus.ACTIVE
+    ? PatientStatus.INACTIVE
+    : PatientStatus.ACTIVE;
+
+  await patientProfileRepository.update(profile, { status: newStatus } as any);
+
+  return await patientRepository.findById(id);
 };
