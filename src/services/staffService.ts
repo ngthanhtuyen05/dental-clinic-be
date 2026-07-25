@@ -17,7 +17,10 @@ export const getAllStaff = async (params: GetStaffParams) => {
   const offset = (page - 1) * limit;
   const where = staffRepository.buildSearchWhere(keyword, role, status);
 
-  const { rows, count } = await staffRepository.findAndCount({ where, limit, offset });
+  const [{ rows, count }, roleCounts] = await Promise.all([
+    staffRepository.findAndCount({ where, limit, offset }),
+    staffRepository.countByRole(),
+  ]);
 
   return {
     staff: rows,
@@ -25,6 +28,7 @@ export const getAllStaff = async (params: GetStaffParams) => {
     limit,
     total: count,
     totalPages: Math.ceil(count / limit),
+    roleCounts,
   };
 };
 

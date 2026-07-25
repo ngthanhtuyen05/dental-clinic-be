@@ -28,6 +28,7 @@ export const getStaffList = async (req: Request, res: Response, next: NextFuncti
         total: result.total,
         totalPages: result.totalPages,
       },
+      roleCounts: result.roleCounts,
     });
   } catch (error) {
     next(error);
