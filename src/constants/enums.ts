@@ -45,3 +45,30 @@ export enum StaffStatus {
   ON_LEAVE = 'on_leave',
   RESIGNED = 'resigned',
 }
+
+export enum InventoryCategory {
+  MEDICINE = 'medicine',
+  DENTAL_SUPPLY = 'dental_supply',
+  NEEDLE = 'needle',
+  GLOVE = 'glove',
+  MASK = 'mask',
+}
+
+export enum ProductUnit {
+  VIEN = 'vien',
+  ONG = 'ong',
+  LO = 'lo',
+  HOP = 'hop',
+  CAI = 'cai',
+  GOI = 'goi',
+  CUON = 'cuon',
+  BO = 'bo',
+  CHAI = 'chai',
+}
+
+export enum StockTransactionType {
+  IMPORT = 'import',
+  TREATMENT = 'treatment',
+  DISPOSAL = 'disposal',
+  ADJUSTMENT = 'adjustment',
+}

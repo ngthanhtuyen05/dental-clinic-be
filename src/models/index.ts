@@ -7,6 +7,10 @@ import ServiceCategory from './serviceCategoryModel.js';
 import Service from './serviceModel.js';
 import StaffProfile from './staffProfileModel.js';
 import Specialty from './specialtyModel.js';
+import Supplier from './supplierModel.js';
+import Product from './productModel.js';
+import StockBatch from './stockBatchModel.js';
+import StockTransaction from './stockTransactionModel.js';
 
 // ==================== ASSOCIATIONS ====================
 
@@ -47,5 +51,25 @@ Service.belongsTo(ServiceCategory, { foreignKey: 'categoryId', as: 'category' })
 User.hasOne(StaffProfile, { foreignKey: 'userId', as: 'staffProfile' });
 StaffProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+// Supplier ↔ Product (1:N)
+Supplier.hasMany(Product, { foreignKey: 'supplierId', as: 'products' });
+Product.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+
+// Product ↔ StockBatch (1:N)
+Product.hasMany(StockBatch, { foreignKey: 'productId', as: 'batches' });
+StockBatch.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
+// Product ↔ StockTransaction (1:N)
+Product.hasMany(StockTransaction, { foreignKey: 'productId', as: 'transactions' });
+StockTransaction.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
+// StockBatch ↔ StockTransaction (1:N)
+StockBatch.hasMany(StockTransaction, { foreignKey: 'batchId', as: 'transactions' });
+StockTransaction.belongsTo(StockBatch, { foreignKey: 'batchId', as: 'batch' });
+
+// User ↔ StockTransaction (1:N)
+User.hasMany(StockTransaction, { foreignKey: 'performedBy', as: 'stockTransactions' });
+StockTransaction.belongsTo(User, { foreignKey: 'performedBy', as: 'performer' });
+
 // ==================== EXPORTS ====================
-export { User, PatientProfile, RefreshToken, Appointment, TreatmentHistory, ServiceCategory, Service, StaffProfile, Specialty };
+export { User, PatientProfile, RefreshToken, Appointment, TreatmentHistory, ServiceCategory, Service, StaffProfile, Specialty, Supplier, Product, StockBatch, StockTransaction };

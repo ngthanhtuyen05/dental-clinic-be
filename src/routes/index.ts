@@ -8,6 +8,9 @@ import patientRoutes from './patientRoutes.js';
 import serviceRoutes from './serviceRoutes.js';
 import staffRoutes from './staffRoutes.js';
 import specialtyRoutes from './specialtyRoutes.js';
+import supplierRoutes from './supplierRoutes.js';
+import productRoutes from './productRoutes.js';
+import stockRoutes from './stockRoutes.js';
 
 const router = express.Router();
 
@@ -32,6 +35,9 @@ router.use('/patients', patientRoutes);
 router.use('/services', serviceRoutes);
 router.use('/staff', staffRoutes);
 router.use('/specialties', specialtyRoutes);
+router.use('/suppliers', supplierRoutes);
+router.use('/products', productRoutes);
+router.use('/stock', stockRoutes);
 router.use('/', treatmentHistoryRoutes);
 
 export default router;
