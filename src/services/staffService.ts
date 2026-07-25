@@ -129,3 +129,24 @@ export const updateStaff = async (id: number, data: any) => {
 export const getStaffStats = async () => {
   return staffRepository.countByRole();
 };
+
+export const resetPassword = async (id: number) => {
+  const user = await User.findByPk(id);
+  if (!user) throw new AppError('Không tìm thấy nhân viên', HttpStatus.NOT_FOUND);
+
+  const defaultPassword = await hashPassword('Dental@123');
+  await user.update({ password: defaultPassword });
+  return true;
+};
+
+export const toggleStatus = async (id: number) => {
+  const staff = await staffRepository.findById(id);
+  if (!staff) throw new AppError('Không tìm thấy nhân viên', HttpStatus.NOT_FOUND);
+
+  const currentStatus = (staff as any).staffProfile?.staffStatus || 'active';
+  const newStatus = currentStatus === 'active' ? 'resigned' : 'active';
+
+  const result = await staffRepository.updateWithProfile(id, {}, { staffStatus: newStatus });
+  if (!result) throw new AppError('Cập nhật thất bại', HttpStatus.INTERNAL_SERVER_ERROR);
+  return result;
+};

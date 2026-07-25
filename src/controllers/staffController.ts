@@ -97,3 +97,37 @@ export const updateStaff = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+/**
+ * PATCH /api/staff/:id/reset-password
+ * Đặt lại mật khẩu nhân viên về Dental@123
+ */
+export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = Number(req.params.id);
+    await staffService.resetPassword(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Mật khẩu đã được đặt lại về mặc định',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/staff/:id/toggle-status
+ * Chuyển đổi trạng thái active ↔ resigned
+ */
+export const toggleStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = Number(req.params.id);
+    const staff = await staffService.toggleStatus(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: new StaffResponseDto(staff),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

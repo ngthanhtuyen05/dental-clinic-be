@@ -1,7 +1,7 @@
 import express from 'express';
 import {
   getStaffList, getStaffDetail, getStaffStats,
-  createStaff, updateStaff,
+  createStaff, updateStaff, resetPassword, toggleStatus,
 } from '../controllers/staffController.js';
 import { protect, restrictTo } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validate.js';
@@ -23,5 +23,8 @@ router.get('/stats', getStaffStats);
 router.route('/:id')
   .get(getStaffDetail)
   .patch(validate(updateStaffSchema), updateStaff);
+
+router.patch('/:id/reset-password', resetPassword);
+router.patch('/:id/toggle-status', toggleStatus);
 
 export default router;
