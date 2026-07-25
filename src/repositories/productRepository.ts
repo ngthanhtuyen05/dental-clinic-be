@@ -1,5 +1,5 @@
-import { Op, type WhereOptions } from 'sequelize';
-import { Product, Supplier } from '../models/index.js';
+import { Op, fn, col, literal, type WhereOptions } from 'sequelize';
+import { Product, Supplier, StockBatch } from '../models/index.js';
 import type { InventoryCategory } from '../constants/enums.js';
 
 const CATEGORY_CODE_PREFIX: Record<string, string> = {
@@ -22,12 +22,22 @@ export class ProductRepository {
       limit: options.limit,
       offset: options.offset,
       distinct: true,
+      attributes: {
+        include: [
+          [literal('(SELECT COALESCE(SUM(`batches`.`currentQty`), 0) FROM `StockBatches` AS `batches` WHERE `batches`.`productId` = `Product`.`id`)'), 'totalStock'],
+        ],
+      },
       include: [{ model: Supplier, as: 'supplier', attributes: ['id', 'name'] }],
     });
   }
 
   async findById(id: number) {
     return Product.findByPk(id, {
+      attributes: {
+        include: [
+          [literal('(SELECT COALESCE(SUM(`batches`.`currentQty`), 0) FROM `StockBatches` AS `batches` WHERE `batches`.`productId` = `Product`.`id`)'), 'totalStock'],
+        ],
+      },
       include: [{ model: Supplier, as: 'supplier', attributes: ['id', 'name'] }],
     });
   }

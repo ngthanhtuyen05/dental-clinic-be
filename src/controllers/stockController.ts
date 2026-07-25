@@ -47,6 +47,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         total: result.total,
         totalPages: result.totalPages,
       },
+      typeCounts: result.typeCounts,
     });
   } catch (error) {
     next(error);

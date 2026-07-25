@@ -60,6 +60,23 @@ export class StockRepository {
       ],
     });
   }
+
+  async countByType(): Promise<Record<string, number>> {
+    const results = await StockTransaction.findAll({
+      attributes: [
+        'type',
+        [fn('COUNT', col('id')), 'count'],
+      ],
+      group: ['type'],
+      raw: true,
+    }) as any[];
+
+    const counts: Record<string, number> = {};
+    for (const row of results) {
+      counts[row.type] = parseInt(row.count, 10);
+    }
+    return counts;
+  }
 }
 
 export const stockRepository = new StockRepository();

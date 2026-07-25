@@ -23,7 +23,7 @@ export class ProductResponseDto {
     this.minStock = product.minStock;
     this.description = product.description;
     this.isActive = product.isActive;
-    this.totalStock = 0; // TODO: compute from stock batches when implemented
+    this.totalStock = parseInt(product.dataValues?.totalStock ?? product.totalStock ?? 0, 10);
     this.supplier = product.supplier
       ? { id: product.supplier.id, name: product.supplier.name }
       : null;

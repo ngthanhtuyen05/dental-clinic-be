@@ -89,7 +89,10 @@ export const getTransactions = async (params: GetTransactionsParams) => {
   if (productId) where.productId = productId;
   if (type) where.type = type;
 
-  const { rows, count } = await stockRepository.findTransactions({ where, limit, offset });
+  const [{ rows, count }, typeCounts] = await Promise.all([
+    stockRepository.findTransactions({ where, limit, offset }),
+    stockRepository.countByType(),
+  ]);
 
   return {
     transactions: rows,
@@ -97,5 +100,6 @@ export const getTransactions = async (params: GetTransactionsParams) => {
     limit,
     total: count,
     totalPages: Math.ceil(count / limit),
+    typeCounts,
   };
 };
