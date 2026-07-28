@@ -8,9 +8,11 @@ export const getPrescriptions = async (req: Request, res: Response, next: NextFu
     const limit = parseInt(req.query.limit as string, 10) || 10;
     const keyword = (req.query.keyword as string) || '';
     const status = (req.query.status as string) || undefined;
+    const startDate = (req.query.startDate as string) || undefined;
+    const endDate = (req.query.endDate as string) || undefined;
     const patientProfileId = req.query.patientProfileId ? Number(req.query.patientProfileId) : undefined;
 
-    const result = await prescriptionService.getPrescriptions({ page, limit, keyword, status, patientProfileId });
+    const result = await prescriptionService.getPrescriptions({ page, limit, keyword, status, startDate, endDate, patientProfileId });
 
     res.status(HttpStatus.OK).json({
       status: 'success',

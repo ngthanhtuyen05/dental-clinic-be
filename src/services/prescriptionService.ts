@@ -9,6 +9,8 @@ export const getPrescriptions = async (params: {
   limit?: number;
   keyword?: string;
   status?: string;
+  startDate?: string;
+  endDate?: string;
   patientProfileId?: number;
 }) => {
   const page = params.page || 1;
@@ -23,6 +25,19 @@ export const getPrescriptions = async (params: {
 
   if (params.patientProfileId) {
     where.patientProfileId = params.patientProfileId;
+  }
+
+  if (params.startDate && params.endDate) {
+    where.prescribedAt = {
+      [Op.between]: [
+        new Date(`${params.startDate}T00:00:00.000Z`),
+        new Date(`${params.endDate}T23:59:59.999Z`),
+      ],
+    };
+  } else if (params.startDate) {
+    where.prescribedAt = { [Op.gte]: new Date(`${params.startDate}T00:00:00.000Z`) };
+  } else if (params.endDate) {
+    where.prescribedAt = { [Op.lte]: new Date(`${params.endDate}T23:59:59.999Z`) };
   }
 
   if (params.keyword) {
