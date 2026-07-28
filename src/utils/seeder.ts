@@ -9,7 +9,6 @@ export const seedAdmin = async (): Promise<void> => {
     const adminEmail = env.ADMIN_EMAIL;
     const adminPassword = env.ADMIN_PASSWORD;
 
-    // Check if an admin already exists in the system
     const adminExists = await User.findOne({
       where: {
         role: UserRole.ADMIN,
@@ -17,7 +16,6 @@ export const seedAdmin = async (): Promise<void> => {
     });
 
     if (!adminExists) {
-      // Check if email is already taken by another user role
       const emailExists = await User.findOne({
         where: {
           email: adminEmail,
@@ -29,11 +27,9 @@ export const seedAdmin = async (): Promise<void> => {
         return;
       }
 
-      // Hash password
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(adminPassword, salt);
 
-      // Create the default admin account
       await User.create({
         fullName: 'System Admin',
         email: adminEmail,
@@ -43,10 +39,6 @@ export const seedAdmin = async (): Promise<void> => {
       });
 
       console.log(`[Seeder] ${Messages.SEEDER.ADMIN_SEEDED}`);
-      console.log(`- Email: ${adminEmail}`);
-      console.log(`- Password: ${adminPassword}`);
-    } else {
-      console.log(`[Seeder] ${Messages.SEEDER.ADMIN_EXISTS}`);
     }
   } catch (error: any) {
     console.error('[Seeder] Error seeding admin account:', error.message);

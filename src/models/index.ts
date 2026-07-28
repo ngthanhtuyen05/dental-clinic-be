@@ -11,6 +11,10 @@ import Supplier from './supplierModel.js';
 import Product from './productModel.js';
 import StockBatch from './stockBatchModel.js';
 import StockTransaction from './stockTransactionModel.js';
+import Prescription from './prescriptionModel.js';
+import PrescriptionItem from './prescriptionItemModel.js';
+import DosageTemplate from './dosageTemplateModel.js';
+import UsageGuide from './usageGuideModel.js';
 
 // ==================== ASSOCIATIONS ====================
 
@@ -71,5 +75,42 @@ StockTransaction.belongsTo(StockBatch, { foreignKey: 'batchId', as: 'batch' });
 User.hasMany(StockTransaction, { foreignKey: 'performedBy', as: 'stockTransactions' });
 StockTransaction.belongsTo(User, { foreignKey: 'performedBy', as: 'performer' });
 
+// Prescription Associations
+PatientProfile.hasMany(Prescription, { foreignKey: 'patientProfileId', as: 'prescriptions' });
+Prescription.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as: 'patientProfile' });
+
+User.hasMany(Prescription, { foreignKey: 'dentistId', as: 'dentistPrescriptions' });
+Prescription.belongsTo(User, { foreignKey: 'dentistId', as: 'dentist' });
+
+Appointment.hasMany(Prescription, { foreignKey: 'appointmentId', as: 'prescriptions' });
+Prescription.belongsTo(Appointment, { foreignKey: 'appointmentId', as: 'appointment' });
+
+TreatmentHistory.hasMany(Prescription, { foreignKey: 'treatmentHistoryId', as: 'prescriptions' });
+Prescription.belongsTo(TreatmentHistory, { foreignKey: 'treatmentHistoryId', as: 'treatmentHistory' });
+
+Prescription.hasMany(PrescriptionItem, { foreignKey: 'prescriptionId', as: 'items' });
+PrescriptionItem.belongsTo(Prescription, { foreignKey: 'prescriptionId', as: 'prescription' });
+
+Product.hasMany(PrescriptionItem, { foreignKey: 'productId', as: 'prescriptionItems' });
+PrescriptionItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
 // ==================== EXPORTS ====================
-export { User, PatientProfile, RefreshToken, Appointment, TreatmentHistory, ServiceCategory, Service, StaffProfile, Specialty, Supplier, Product, StockBatch, StockTransaction };
+export {
+  User,
+  PatientProfile,
+  RefreshToken,
+  Appointment,
+  TreatmentHistory,
+  ServiceCategory,
+  Service,
+  StaffProfile,
+  Specialty,
+  Supplier,
+  Product,
+  StockBatch,
+  StockTransaction,
+  Prescription,
+  PrescriptionItem,
+  DosageTemplate,
+  UsageGuide,
+};

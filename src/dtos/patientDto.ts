@@ -69,6 +69,8 @@ export class PatientResponseDto {
   public history: string;
   public lastVisit: string;
   public status: 'active' | 'inactive';
+  public patientProfileId: number;
+  public rawId: number;
   public profileDetails: Record<string, any>;
 
   constructor(patient: any) {
@@ -89,6 +91,8 @@ export class PatientResponseDto {
 
     this.key = patient.id.toString();
     this.id = `BN${patient.id.toString().padStart(4, '0')}`;
+    this.rawId = patient.id;
+    this.patientProfileId = profile?.id || patient.id;
     this.name = patient.fullName;
     this.email = patient.email;
     this.phone = patient.phone || '';

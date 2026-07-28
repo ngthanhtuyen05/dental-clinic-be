@@ -20,10 +20,10 @@ export const notFoundHandler = (req: Request, _res: Response, next: NextFunction
 export const globalErrorHandler = (err: any, _req: Request, res: Response, _next: NextFunction): void => {
   let statusCode = err.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
   let status = err.status || 'error';
-  let message = err.message;
+  let message = err.message || Messages.SERVER.INTERNAL_ERROR;
   let isOperational = err.isOperational;
 
-  // Xử lý lỗi trùng lặp dữ liệu từ Sequelize (Ví dụ: Email hoặc SĐT bị trùng dưới DB)
+  // Xử lý các lỗi dữ liệu từ Sequelize
   if (err.name === 'SequelizeUniqueConstraintError') {
     const field = err.errors?.[0]?.path || 'trường dữ liệu';
     const val = err.errors?.[0]?.value || '';
@@ -31,21 +31,38 @@ export const globalErrorHandler = (err: any, _req: Request, res: Response, _next
     statusCode = HttpStatus.CONFLICT;
     status = 'fail';
     isOperational = true;
+  } else if (err.name === 'SequelizeValidationError') {
+    const msg = err.errors?.[0]?.message || 'Dữ liệu không hợp lệ';
+    message = `Lỗi dữ liệu: ${msg}`;
+    statusCode = HttpStatus.BAD_REQUEST;
+    status = 'fail';
+    isOperational = true;
+  } else if (err.name === 'SequelizeDatabaseError') {
+    // Xử lý lỗi sai định dạng dữ liệu (ví dụ: sai kiểu dữ liệu số, chuỗi quá dài...)
+    console.error('[SequelizeDatabaseError]', err.message);
+    message = 'Dữ liệu truyền vào không hợp lệ hoặc sai định dạng.';
+    statusCode = HttpStatus.BAD_REQUEST;
+    status = 'fail';
+    isOperational = true;
+  } else if (err.name === 'SequelizeForeignKeyConstraintError') {
+    console.error('[SequelizeForeignKeyConstraintError]', err.message);
+    message = 'Khóa ngoại tham chiếu không tồn tại trong hệ thống.';
+    statusCode = HttpStatus.BAD_REQUEST;
+    status = 'fail';
+    isOperational = true;
   }
 
   if (env.isDevelopment) {
-    // Đối với các lỗi client (4xx) như trùng SĐT/Email, sai validation, không cần trả về stack trace
-    if (statusCode < 500) {
+    if (statusCode < 500 || isOperational) {
       res.status(statusCode).json({
         status,
         message,
       });
     } else {
+      console.error('[ServerError]', err);
       res.status(statusCode).json({
         status,
-        message,
-        stack: err.stack,
-        error: err,
+        message: 'Có lỗi xảy ra từ hệ thống server.',
       });
     }
   } else {

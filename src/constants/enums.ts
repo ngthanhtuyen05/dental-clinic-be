@@ -72,3 +72,29 @@ export enum StockTransactionType {
   DISPOSAL = 'disposal',
   ADJUSTMENT = 'adjustment',
 }
+
+export enum PrescriptionStatus {
+  DRAFT = 'draft',
+  CONFIRMED = 'confirmed',
+  CANCELLED = 'cancelled',
+}
+
+export enum DosageFrequency {
+  ONCE_DAILY = 'once_daily',
+  TWICE_DAILY = 'twice_daily',
+  THREE_TIMES_DAILY = 'three_times_daily',
+  FOUR_TIMES_DAILY = 'four_times_daily',
+  EVERY_6_HOURS = 'every_6_hours',
+  EVERY_8_HOURS = 'every_8_hours',
+  EVERY_12_HOURS = 'every_12_hours',
+  AS_NEEDED = 'as_needed',
+}
+
+export enum MealRelation {
+  BEFORE_MEAL = 'before_meal',
+  AFTER_MEAL = 'after_meal',
+  WITH_MEAL = 'with_meal',
+  EMPTY_STOMACH = 'empty_stomach',
+  ANY_TIME = 'any_time',
+}
+
