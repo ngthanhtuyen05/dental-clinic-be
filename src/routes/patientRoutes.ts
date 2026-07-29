@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPatients, getPatient, createPatient, updatePatient, deletePatient, togglePatientStatus } from '../controllers/patientController.js';
+import { getPatients, getPatient, createPatient, updatePatient, deletePatient, togglePatientStatus, importPatients } from '../controllers/patientController.js';
 import { protect, restrictTo } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validate.js';
 import { createPatientSchema, updatePatientSchema } from '../validations/patientValidation.js';
@@ -8,6 +8,8 @@ import { UserRole } from '../constants/enums.js';
 const router = express.Router();
 
 router.use(protect);
+
+router.post('/import', restrictTo(UserRole.ADMIN, UserRole.DENTIST, UserRole.STAFF), importPatients);
 
 router.route('/')
   .get(restrictTo(UserRole.ADMIN, UserRole.DENTIST, UserRole.STAFF), getPatients)

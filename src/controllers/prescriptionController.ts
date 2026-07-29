@@ -67,9 +67,10 @@ export const updatePrescriptionStatus = async (req: Request, res: Response, next
   }
 };
 
-export const getDosageTemplates = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getDosageTemplates = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const templates = await prescriptionService.getDosageTemplates();
+    const keyword = (req.query.keyword as string) || undefined;
+    const templates = await prescriptionService.getDosageTemplates(keyword);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: templates,
@@ -91,9 +92,10 @@ export const createDosageTemplate = async (req: Request, res: Response, next: Ne
   }
 };
 
-export const getUsageGuides = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getUsageGuides = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const guides = await prescriptionService.getUsageGuides();
+    const keyword = (req.query.keyword as string) || undefined;
+    const guides = await prescriptionService.getUsageGuides(keyword);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: guides,

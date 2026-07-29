@@ -29,9 +29,16 @@ export const getPatients = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+const parsePatientId = (paramId: string): number => {
+  if (!paramId) return 0;
+  const clean = paramId.replace(/^BN0*/i, '');
+  const parsed = parseInt(clean, 10);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export const getPatient = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const id = parseInt(req.params.id as string, 10);
+    const id = parsePatientId(req.params.id as string);
     const patient = await patientService.getPatientById(id);
     res.status(HttpStatus.OK).json({
       status: 'success',
@@ -56,7 +63,7 @@ export const createPatient = async (req: Request, res: Response, next: NextFunct
 
 export const updatePatient = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const id = parseInt(req.params.id as string, 10);
+    const id = parsePatientId(req.params.id as string);
     const patient = await patientService.updatePatient(id, req.body);
     res.status(HttpStatus.OK).json({
       status: 'success',
@@ -69,7 +76,7 @@ export const updatePatient = async (req: Request, res: Response, next: NextFunct
 
 export const deletePatient = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const id = parseInt(req.params.id as string, 10);
+    const id = parsePatientId(req.params.id as string);
     await patientService.deletePatient(id);
     res.status(HttpStatus.NO_CONTENT).json({
       status: 'success',
@@ -82,11 +89,25 @@ export const deletePatient = async (req: Request, res: Response, next: NextFunct
 
 export const togglePatientStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const id = parseInt(req.params.id as string, 10);
+    const id = parsePatientId(req.params.id as string);
     const patient = await patientService.togglePatientStatus(id);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: new PatientResponseDto(patient),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const importPatients = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const patients = req.body.patients || req.body;
+    const result = await patientService.importPatients(patients);
+    res.status(HttpStatus.CREATED).json({
+      status: 'success',
+      message: `Đã nhập thành công ${result.importedCount}/${result.total} bệnh nhân (Bỏ qua ${result.skippedCount} bệnh nhân trùng SĐT/lỗi).`,
+      data: result,
     });
   } catch (error) {
     next(error);

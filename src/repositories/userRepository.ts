@@ -19,6 +19,10 @@ export class UserRepository {
     return User.findOne({ where: { email } });
   }
 
+  async findByPhone(phone: string): Promise<UserModel | null> {
+    return User.findOne({ where: { phone } });
+  }
+
   async create(data: CreationAttributes<UserModel>, transaction?: Transaction): Promise<UserModel> {
     return User.create(data, { transaction });
   }

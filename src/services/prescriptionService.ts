@@ -262,9 +262,17 @@ export const updatePrescriptionStatus = async (id: number, status: PrescriptionS
   return getPrescriptionById(id);
 };
 
-export const getDosageTemplates = async () => {
+export const getDosageTemplates = async (keyword?: string) => {
+  const where: any = { isActive: true };
+  if (keyword && keyword.trim()) {
+    const kw = `%${keyword.trim()}%`;
+    where[Op.or] = [
+      { name: { [Op.like]: kw } },
+      { instruction: { [Op.like]: kw } },
+    ];
+  }
   return DosageTemplate.findAll({
-    where: { isActive: true },
+    where,
     order: [['createdAt', 'DESC']],
   });
 };
@@ -273,9 +281,18 @@ export const createDosageTemplate = async (data: any) => {
   return DosageTemplate.create(data);
 };
 
-export const getUsageGuides = async () => {
+export const getUsageGuides = async (keyword?: string) => {
+  const where: any = { isActive: true };
+  if (keyword && keyword.trim()) {
+    const kw = `%${keyword.trim()}%`;
+    where[Op.or] = [
+      { title: { [Op.like]: kw } },
+      { category: { [Op.like]: kw } },
+      { content: { [Op.like]: kw } },
+    ];
+  }
   return UsageGuide.findAll({
-    where: { isActive: true },
+    where,
     order: [['createdAt', 'DESC']],
   });
 };

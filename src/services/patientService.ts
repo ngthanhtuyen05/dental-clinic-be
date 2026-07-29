@@ -4,7 +4,7 @@ import { patientProfileRepository } from '../repositories/patientProfileReposito
 import { hashPassword } from '../utils/password.js';
 import sequelize from '../config/db.js';
 import AppError from '../utils/AppError.js';
-import { UserRole, PatientStatus } from '../constants/enums.js';
+import { UserRole, PatientStatus, Gender } from '../constants/enums.js';
 import type { PatientQueryDto, CreatePatientRequestDto, UpdatePatientRequestDto, PaginatedPatientsDto } from '../dtos/patientDto.js';
 
 export const getAllPatients = async (query: PatientQueryDto): Promise<PaginatedPatientsDto> => {
@@ -162,4 +162,80 @@ export const togglePatientStatus = async (id: number) => {
   await patientProfileRepository.update(profile, { status: newStatus } as any);
 
   return await patientRepository.findById(id);
+};
+
+export const importPatients = async (patients: Array<{
+  fullName: string;
+  phone: string;
+  gender?: string;
+  age?: number | string;
+  dateOfBirth?: string;
+  email?: string;
+  allergies?: string;
+}>) => {
+  if (!Array.isArray(patients) || patients.length === 0) {
+    throw new AppError('Danh sách bệnh nhân nhập không được để trống.', 400);
+  }
+
+  let importedCount = 0;
+  let skippedCount = 0;
+
+  await sequelize.transaction(async (t) => {
+    for (const item of patients) {
+      const { fullName, phone, email, gender, age, dateOfBirth, allergies } = item;
+      if (!fullName || !phone) {
+        skippedCount++;
+        continue;
+      }
+
+      const existingUser = await userRepository.findByPhone(phone);
+      if (existingUser) {
+        skippedCount++;
+        continue;
+      }
+
+      const generatedEmail = email || `patient_${phone}@dental.local`;
+      const hashedPassword = await hashPassword(phone || '123456');
+
+      const user = await userRepository.create({
+        fullName,
+        email: generatedEmail,
+        password: hashedPassword,
+        phone,
+        role: UserRole.PATIENT,
+      }, t);
+
+      const mapGender = (g?: string): Gender => {
+        if (!g) return Gender.OTHER;
+        const lower = g.trim().toLowerCase();
+        if (lower === 'nam' || lower === 'male') return Gender.MALE;
+        if (lower === 'nữ' || lower === 'nu' || lower === 'female') return Gender.FEMALE;
+        return Gender.OTHER;
+      };
+
+      // Tự động suy ra Ngày sinh (dateOfBirth) từ Tuổi (age) nếu dateOfBirth không được nhập
+      let dob: Date | undefined = undefined;
+      if (dateOfBirth) {
+        dob = new Date(dateOfBirth);
+      } else if (age) {
+        const numAge = Number(age);
+        if (!isNaN(numAge) && numAge > 0) {
+          const birthYear = new Date().getFullYear() - numAge;
+          dob = new Date(`${birthYear}-01-01`);
+        }
+      }
+
+      await patientProfileRepository.create({
+        userId: user.id,
+        dateOfBirth: dob,
+        gender: mapGender(gender),
+        allergies,
+        status: PatientStatus.ACTIVE,
+      } as any, t);
+
+      importedCount++;
+    }
+  });
+
+  return { importedCount, skippedCount, total: patients.length };
 };
