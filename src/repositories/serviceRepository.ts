@@ -1,5 +1,7 @@
 import { Op, type WhereOptions } from 'sequelize';
 import { ServiceCategory, Service } from '../models/index.js';
+import AppError from '../utils/AppError.js';
+import HttpStatus from '../constants/httpStatus.js';
 
 export class ServiceRepository {
   // ── Categories ──
@@ -26,7 +28,7 @@ export class ServiceRepository {
   async deleteCategory(id: number) {
     const count = await Service.count({ where: { categoryId: id } });
     if (count > 0) {
-      throw new Error('Không thể xóa nhóm đang có dịch vụ liên kết');
+      throw new AppError('Không thể xóa nhóm đang có dịch vụ liên kết', HttpStatus.BAD_REQUEST);
     }
     const cat = await ServiceCategory.findByPk(id);
     if (!cat) return false;
