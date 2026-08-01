@@ -3,21 +3,24 @@ import { AppointmentStatus, AppointmentType } from '../constants/enums.js';
 
 // Request DTOs
 export interface CreateAppointmentRequestDto {
-  patientId: number;
-  dentistId: number;
-  serviceId: number;
+  patientId?: number;
+  dentistId?: number | string;
+  serviceId: number | string;
   appointmentDate: string;
   startTime: string;
-  type: AppointmentType;
+  type?: AppointmentType;
+  fullName?: string;
+  phone?: string;
+  email?: string;
   chiefComplaint?: string;
   notes?: string;
   createdBy?: number;
 }
 
 export interface UpdateAppointmentRequestDto {
-  patientId?: number;
-  dentistId?: number;
-  serviceId?: number;
+  patientId?: number | string;
+  dentistId?: number | string;
+  serviceId?: number | string;
   appointmentDate?: string;
   startTime?: string;
   type?: AppointmentType;
@@ -112,14 +115,14 @@ export class AppointmentResponseDto {
     this.notes = appointment.notes;
     this.cancelReason = appointment.cancelReason;
 
-    this.checkedInAt = appointment.checkedInAt;
-    this.startedAt = appointment.startedAt;
-    this.completedAt = appointment.completedAt;
-    this.cancelledAt = appointment.cancelledAt;
+    this.checkedInAt = appointment.checkedInAt || null;
+    this.startedAt = appointment.startedAt || null;
+    this.completedAt = appointment.completedAt || null;
+    this.cancelledAt = appointment.cancelledAt || null;
 
     this.createdAt = appointment.createdAt || new Date();
     this.updatedAt = appointment.updatedAt || new Date();
-    this.createdBy = appointment.createdBy;
+    this.createdBy = appointment.createdBy || null;
   }
 
   static toList(appointments: any[]): AppointmentResponseDto[] {

@@ -13,25 +13,22 @@ import { UserRole } from '../constants/enums.js';
 
 const router = express.Router();
 
+// ── Public Routes (Browse Services & Categories) ──
+router.get('/', getServices);
+router.get('/categories', getCategories);
+router.get('/:id', getService);
+
+// ── Protected Routes (Admin Write Actions) ──
 router.use(protect);
 
-// ── Categories ──
-router.route('/categories')
-  .get(getCategories)
-  .post(restrictTo(UserRole.ADMIN), validate(createCategorySchema), createCategory);
+// Categories Admin Actions
+router.post('/categories', restrictTo(UserRole.ADMIN), validate(createCategorySchema), createCategory);
+router.patch('/categories/:id', restrictTo(UserRole.ADMIN), validate(updateCategorySchema), updateCategory);
+router.delete('/categories/:id', restrictTo(UserRole.ADMIN), deleteCategory);
 
-router.route('/categories/:id')
-  .patch(restrictTo(UserRole.ADMIN), validate(updateCategorySchema), updateCategory)
-  .delete(restrictTo(UserRole.ADMIN), deleteCategory);
-
-// ── Services ──
-router.route('/')
-  .get(getServices)
-  .post(restrictTo(UserRole.ADMIN), validate(createServiceSchema), createService);
-
-router.route('/:id')
-  .get(getService)
-  .patch(restrictTo(UserRole.ADMIN), validate(updateServiceSchema), updateService)
-  .delete(restrictTo(UserRole.ADMIN), deleteService);
+// Services Admin Actions
+router.post('/', restrictTo(UserRole.ADMIN), validate(createServiceSchema), createService);
+router.patch('/:id', restrictTo(UserRole.ADMIN), validate(updateServiceSchema), updateService);
+router.delete('/:id', restrictTo(UserRole.ADMIN), deleteService);
 
 export default router;

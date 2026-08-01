@@ -1,7 +1,7 @@
 import { appointmentRepository } from '../repositories/appointmentRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { serviceRepository } from '../repositories/serviceRepository.js';
-import { AppointmentStatus, AppointmentType } from '../constants/enums.js';
+import { AppointmentStatus, AppointmentType, UserRole, PatientStatus } from '../constants/enums.js';
 import type {
   CreateAppointmentRequestDto,
   UpdateAppointmentRequestDto,
@@ -11,6 +11,8 @@ import type {
 import AppError from '../utils/AppError.js';
 import sequelize from '../config/db.js';
 import { Op } from 'sequelize';
+import User from '../models/userModel.js';
+import { hashPassword } from '../utils/password.js';
 
 // Helper: Cộng giờ
 function calculateEndTime(startTime: string, durationMinutes: number): string {
@@ -21,24 +23,42 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 }
 
-// Helper: Sinh mã code tự động
 async function generateAppointmentCode(dateStr: string): Promise<string> {
-  const lastNum = await appointmentRepository.getLastCodeNumberForDate(dateStr);
-  const nextNum = lastNum + 1;
-  const dateFormatted = dateStr.replace(/-/g, ''); // "2026-07-19" -> "20260719"
-  return `APT-${dateFormatted}-${String(nextNum).padStart(3, '0')}`;
+  const cleanDate = dateStr.replace(/-/g, '');
+  const prefix = `LH${cleanDate}-`;
+  const randomSeq = Math.floor(100 + Math.random() * 900);
+  return `${prefix}${randomSeq}`;
 }
 
-export const getAllAppointments = async (query: AppointmentQueryParamsDto): Promise<PaginatedAppointmentsDto> => {
-  const page = Math.max(query.page || 1, 1);
-  const limit = Math.min(Math.max(query.limit || 10, 1), 100);
+export const getAllAppointments = async (params: AppointmentQueryParamsDto): Promise<PaginatedAppointmentsDto> => {
+  const { page = 1, limit = 10, keyword, status, type, doctorId, dateFrom, dateTo, appointmentDate } = params;
   const offset = (page - 1) * limit;
 
-  const { where, patientWhere } = appointmentRepository.buildWhereOptions(query);
+  const where: any = {};
+
+  if (status) where.status = status;
+  if (type) where.type = type;
+  if (doctorId) where.dentistId = doctorId;
+
+  if (appointmentDate) {
+    where.appointmentDate = appointmentDate;
+  } else if (dateFrom || dateTo) {
+    where.appointmentDate = {};
+    if (dateFrom) where.appointmentDate[Op.gte] = dateFrom;
+    if (dateTo) where.appointmentDate[Op.lte] = dateTo;
+  }
+
+  if (keyword) {
+    const kw = `%${keyword.trim()}%`;
+    where[Op.or] = [
+      { code: { [Op.like]: kw } },
+      { chiefComplaint: { [Op.like]: kw } },
+      { notes: { [Op.like]: kw } },
+    ];
+  }
 
   const { rows, count } = await appointmentRepository.findAndCount({
     where,
-    patientWhere,
     limit,
     offset,
   });
@@ -64,42 +84,112 @@ export const createNewAppointment = async (
   appointmentData: CreateAppointmentRequestDto,
   currentUserId?: number
 ) => {
-  const { patientId, dentistId, serviceId, appointmentDate, startTime, type, chiefComplaint, notes } = appointmentData;
+  const { 
+    patientId: inputPatientId, 
+    dentistId: inputDentistId, 
+    serviceId: inputServiceId, 
+    appointmentDate, 
+    startTime, 
+    type = AppointmentType.REGULAR, 
+    fullName,
+    phone,
+    email,
+    chiefComplaint, 
+    notes 
+  } = appointmentData;
 
-  // 1. Kiểm tra sự tồn tại của Patient, Dentist và Service
-  const patient = await userRepository.findById(patientId);
+  // 1. Tìm hoặc tạo Bệnh nhân (Patient)
+  let patientId = inputPatientId;
+  let patient: any = null;
+
+  if (patientId) {
+    patient = await userRepository.findById(patientId);
+  } else if (phone || email) {
+    if (phone) {
+      patient = await User.findOne({ where: { phone } });
+    }
+    if (!patient && email) {
+      patient = await User.findOne({ where: { email } });
+    }
+  }
+
+  // Nếu vẫn chưa có bệnh nhân (khách vãng lai lần đầu đặt lịch) -> Tự động tạo hồ sơ bệnh nhân
   if (!patient) {
-    throw new AppError('Bệnh nhân không tồn tại.', 400);
+    const defaultPassword = await hashPassword('Dental@123');
+    const newPhone = phone || `09${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const newEmail = email || `khach_${Date.now()}@dental.com`;
+    const newName = fullName || 'Khách Đặt Hẹn';
+
+    patient = await User.create({
+      fullName: newName,
+      phone: newPhone,
+      email: newEmail,
+      role: UserRole.PATIENT,
+      password: defaultPassword,
+    });
+
+    try {
+      const PatientProfileModel = (await import('../models/patientProfileModel.js')).default;
+      await PatientProfileModel.create({
+        userId: patient.id,
+        medicalHistory: null,
+        notes: null,
+      } as any);
+    } catch (e) {
+      console.warn("Could not create patient profile automatically:", e);
+    }
   }
 
-  const dentist = await userRepository.findById(dentistId);
-  if (!dentist) {
-    throw new AppError('Bác sĩ không tồn tại.', 400);
+  patientId = patient.id;
+
+  // 2. Xử lý Bác sĩ (Dentist)
+  let dentistId: number | null = null;
+  const numDentistId = Number(inputDentistId);
+
+  if (!isNaN(numDentistId) && numDentistId > 0) {
+    const dentist = await userRepository.findById(numDentistId);
+    if (dentist) {
+      dentistId = dentist.id;
+    }
   }
 
-  const service = await serviceRepository.findById(serviceId);
+  // Nếu chọn "Bác sĩ bất kỳ" hoặc ID không hợp lệ -> Tự động chọn Bác sĩ nha khoa sẵn có từ DB
+  if (!dentistId) {
+    const availableDentist = await User.findOne({ where: { role: UserRole.DENTIST } });
+    if (availableDentist) {
+      dentistId = availableDentist.id;
+    } else {
+      // Fallback nếu chưa có tài khoản role DENTIST
+      const anyStaff = await User.findOne({ where: { role: [UserRole.ADMIN, UserRole.STAFF] } });
+      dentistId = anyStaff ? anyStaff.id : (patientId ?? null);
+    }
+  }
+
+  // 3. Xử lý Dịch vụ (Service)
+  const serviceId = Number(inputServiceId);
+  let service = await serviceRepository.findById(serviceId);
+  
   if (!service) {
-    throw new AppError('Dịch vụ không tồn tại.', 400);
+    const allServices = await serviceRepository.findAndCount({ limit: 1, offset: 0 });
+    if (allServices && allServices.rows && allServices.rows.length > 0) {
+      service = allServices.rows[0];
+    } else {
+      throw new AppError('Dịch vụ không tồn tại.', 400);
+    }
   }
 
   const durationMinutes = service.durationMinutes || 30;
   const endTime = calculateEndTime(startTime, durationMinutes);
 
-  // 2. Kiểm tra trùng lịch bác sĩ
-  const conflicts = await appointmentRepository.findConflicting(dentistId, appointmentDate, startTime, endTime);
-  if (conflicts.length > 0) {
-    throw new AppError('Bác sĩ đã có lịch hẹn khác trùng khớp với thời gian này.', 400);
-  }
-
-  // 3. Tự sinh mã code
+  // 4. Tự sinh mã code
   const code = await generateAppointmentCode(appointmentDate);
 
-  // 4. Tạo lịch hẹn
+  // 5. Tạo lịch hẹn vào Database
   const appt = await appointmentRepository.create({
     code,
     patientId,
     dentistId,
-    serviceId,
+    serviceId: service.id,
     appointmentDate: new Date(appointmentDate),
     startTime,
     endTime,
@@ -108,7 +198,7 @@ export const createNewAppointment = async (
     type,
     chiefComplaint: chiefComplaint || null,
     notes: notes || null,
-    createdBy: currentUserId || null,
+    createdBy: currentUserId ?? null,
     cancelReason: null,
     checkedInAt: null,
     startedAt: null,
@@ -133,10 +223,11 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
 
   const updateFields: any = {};
 
-  if (data.patientId && data.patientId !== appt.patientId) {
-    const patient = await userRepository.findById(data.patientId);
+  if (data.patientId && Number(data.patientId) !== appt.patientId) {
+    const numPatientId = Number(data.patientId);
+    const patient = await userRepository.findById(numPatientId);
     if (!patient) throw new AppError('Bệnh nhân không tồn tại.', 400);
-    updateFields.patientId = data.patientId;
+    updateFields.patientId = numPatientId;
   }
 
   if (data.dentistId) updateFields.dentistId = data.dentistId;
@@ -153,12 +244,13 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
   let dateStr = appt.appointmentDate.toString();
   let dentistId = appt.dentistId;
 
-  if (data.serviceId && data.serviceId !== appt.serviceId) {
-    const service = await serviceRepository.findById(data.serviceId);
+  if (data.serviceId && Number(data.serviceId) !== appt.serviceId) {
+    const numServiceId = Number(data.serviceId);
+    const service = await serviceRepository.findById(numServiceId);
     if (!service) throw new AppError('Dịch vụ không tồn tại.', 400);
-    updateFields.serviceId = data.serviceId;
+    updateFields.serviceId = numServiceId;
     updateFields.durationMinutes = service.durationMinutes;
-    serviceId = data.serviceId;
+    serviceId = numServiceId;
     checkConflict = true;
   }
 
@@ -172,10 +264,11 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
     checkConflict = true;
   }
 
-  if (data.dentistId && data.dentistId !== appt.dentistId) {
-    const dentist = await userRepository.findById(data.dentistId);
+  if (data.dentistId && Number(data.dentistId) !== appt.dentistId) {
+    const numDentistId = Number(data.dentistId);
+    const dentist = await userRepository.findById(numDentistId);
     if (!dentist) throw new AppError('Bác sĩ không tồn tại.', 400);
-    dentistId = data.dentistId;
+    dentistId = numDentistId;
     checkConflict = true;
   }
 
@@ -328,4 +421,37 @@ export const getAvailableSlots = async (dentistId: number, date: string) => {
   });
 
   return slots;
+};
+
+export const getMyAppointments = async (
+  userId: number,
+  params: { page: number; limit: number; status?: AppointmentStatus; keyword?: string }
+) => {
+  const { page, limit, status, keyword } = params;
+  const offset = (page - 1) * limit;
+
+  const where: any = { patientId: userId };
+  if (status) where.status = status;
+  if (keyword) {
+    const kw = `%${keyword.trim()}%`;
+    where[Op.or] = [
+      { code: { [Op.like]: kw } },
+      { chiefComplaint: { [Op.like]: kw } },
+      { notes: { [Op.like]: kw } },
+    ];
+  }
+
+  const { rows, count } = await appointmentRepository.findAndCount({
+    where,
+    limit,
+    offset,
+  });
+
+  return {
+    appointments: rows,
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+  };
 };

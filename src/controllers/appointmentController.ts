@@ -137,3 +137,30 @@ export const getAvailableSlots = async (req: Request, res: Response, next: NextF
     next(error);
   }
 };
+
+export const getMyAppointments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const currentUserId = (req as any).user?.id;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const status = (req.query.status as AppointmentStatus) || undefined;
+    const keyword = (req.query.keyword as string) || '';
+
+    const result = await appointmentService.getMyAppointments(currentUserId, { page, limit, status, keyword });
+    const formatted = AppointmentResponseDto.toList(result.appointments);
+
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      results: formatted.length,
+      data: formatted,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

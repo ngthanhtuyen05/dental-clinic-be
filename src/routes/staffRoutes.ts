@@ -10,14 +10,14 @@ import { UserRole } from '../constants/enums.js';
 
 const router = express.Router();
 
-// All staff routes require auth + admin role
+// ── Public Routes (Khách vãng lai xem danh sách bác sĩ để đặt hẹn) ──
+router.get('/', getStaffList);
+
+// ── Protected Admin Routes ──
 router.use(protect);
 router.use(restrictTo(UserRole.ADMIN));
 
-router.route('/')
-  .get(getStaffList)
-  .post(validate(createStaffSchema), createStaff);
-
+router.post('/', validate(createStaffSchema), createStaff);
 router.get('/stats', getStaffStats);
 
 router.route('/:id')

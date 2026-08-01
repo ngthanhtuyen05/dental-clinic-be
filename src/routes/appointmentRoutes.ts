@@ -7,6 +7,7 @@ import {
   updateAppointmentStatus,
   getTodayStats,
   getAvailableSlots,
+  getMyAppointments,
 } from '../controllers/appointmentController.js';
 import { validate } from '../middlewares/validate.js';
 import {
@@ -18,16 +19,16 @@ import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Yêu cầu đăng nhập cho toàn bộ API Lịch hẹn
-router.use(protect);
-
-// Các route tĩnh cần đặt trước route động /:id
-router.get('/today-stats', getTodayStats);
+// ── Public Routes (Khách xem lịch trống) ──
 router.get('/available-slots', getAvailableSlots);
 
-router.route('/')
-  .get(getAppointments)
-  .post(validate(createAppointmentSchema), createAppointment);
+// ── Protected Routes (Bắt buộc đăng nhập tài khoản) ──
+router.use(protect);
+
+router.get('/my-appointments', getMyAppointments);
+router.post('/', validate(createAppointmentSchema), createAppointment);
+router.get('/today-stats', getTodayStats);
+router.get('/', getAppointments);
 
 router.route('/:id')
   .get(getAppointment)
