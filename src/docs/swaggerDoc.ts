@@ -857,6 +857,262 @@ export const swaggerDocument = {
           }
         }
       }
+    },
+    "/api/invoices": {
+      "post": {
+        "summary": "Tạo hóa đơn thanh toán mới",
+        "tags": ["Invoices"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["patientProfileId"],
+                "properties": {
+                  "patientProfileId": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "appointmentId": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "treatmentHistoryId": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "prescriptionId": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "totalAmount": {
+                    "type": "number",
+                    "example": 500000
+                  },
+                  "notes": {
+                    "type": "string",
+                    "example": "Thanh toán dịch vụ trám răng"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tạo hóa đơn thành công"
+          },
+          "400": {
+            "description": "Thiếu dữ liệu bắt buộc"
+          }
+        }
+      },
+      "get": {
+        "summary": "Lấy danh sách hóa đơn",
+        "tags": ["Invoices"],
+        "parameters": [
+          {
+            "name": "patientProfileId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["unpaid", "paid", "cancelled"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách hóa đơn"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}": {
+      "get": {
+        "summary": "Lấy chi tiết hóa đơn theo ID",
+        "tags": ["Invoices"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin hóa đơn chi tiết"
+          },
+          "404": {
+            "description": "Không tìm thấy hóa đơn"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}/pay": {
+      "patch": {
+        "summary": "Xác nhận thanh toán hóa đơn bằng Tiền mặt hoặc Chuyển khoản VietQR",
+        "tags": ["Invoices"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["paymentMethod"],
+                "properties": {
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": ["cash", "bank_transfer"],
+                    "example": "cash"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thanh toán thành công"
+          },
+          "400": {
+            "description": "Phương thức không hợp lệ hoặc Hóa đơn đã thanh toán"
+          },
+          "404": {
+            "description": "Không tìm thấy hóa đơn"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}/momo": {
+      "post": {
+        "summary": "Tạo liên kết / Mã QR thanh toán MoMo Sandbox",
+        "tags": ["Invoices"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "redirectUrl": {
+                    "type": "string",
+                    "example": "http://localhost:5173/payment-success"
+                  },
+                  "ipnUrl": {
+                    "type": "string",
+                    "example": "http://localhost:5000/api/invoices/momo-ipn"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trả về link thanh toán payUrl của MoMo"
+          },
+          "400": {
+            "description": "Hóa đơn đã được thanh toán từ trước"
+          },
+          "404": {
+            "description": "Không tìm thấy hóa đơn"
+          }
+        }
+      }
+    },
+    "/api/invoices/momo-ipn": {
+      "post": {
+        "summary": "Webhook nhận kết quả thanh toán từ MoMo Server",
+        "tags": ["Invoices"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "partnerCode": { "type": "string" },
+                  "orderId": { "type": "string" },
+                  "requestId": { "type": "string" },
+                  "amount": { "type": "number" },
+                  "resultCode": { "type": "integer" },
+                  "transId": { "type": "string" },
+                  "signature": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Đã xử lý IPN thành công"
+          },
+          "400": {
+            "description": "Chữ ký signature không hợp lệ"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}/cancel": {
+      "patch": {
+        "summary": "Hủy hóa đơn chưa thanh toán",
+        "tags": ["Invoices"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hủy hóa đơn thành công"
+          },
+          "400": {
+            "description": "Không thể hủy hóa đơn đã thanh toán"
+          },
+          "404": {
+            "description": "Không tìm thấy hóa đơn"
+          }
+        }
+      }
     }
   }
 };
+

@@ -98,3 +98,16 @@ export enum MealRelation {
   ANY_TIME = 'any_time',
 }
 
+export enum InvoiceStatus {
+  UNPAID = 'unpaid',
+  PAID = 'paid',
+  CANCELLED = 'cancelled',
+}
+
+export enum PaymentMethod {
+  CASH = 'cash',
+  BANK_TRANSFER = 'bank_transfer',
+  MOMO = 'momo',
+}
+
+

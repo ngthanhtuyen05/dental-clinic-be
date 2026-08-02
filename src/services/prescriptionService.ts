@@ -80,7 +80,7 @@ export const getPrescriptions = async (params: {
           {
             model: Product,
             as: 'product',
-            attributes: ['id', 'code', 'name', 'unit'],
+            attributes: ['id', 'code', 'name', 'unit', 'sellingPrice', 'unitPrice', 'price'],
           },
         ],
       },

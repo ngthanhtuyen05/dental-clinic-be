@@ -3,7 +3,7 @@ import * as appointmentService from '../services/appointmentService.js';
 import { AppointmentResponseDto } from '../dtos/appointmentDto.js';
 import HttpStatus from '../constants/httpStatus.js';
 import Messages from '../constants/messages.js';
-import { AppointmentStatus, AppointmentType } from '../constants/enums.js';
+import { AppointmentStatus, AppointmentType, UserRole } from '../constants/enums.js';
 
 export const getAppointments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -12,10 +12,18 @@ export const getAppointments = async (req: Request, res: Response, next: NextFun
     const keyword = (req.query.keyword as string) || '';
     const status = (req.query.status as AppointmentStatus) || undefined;
     const type = (req.query.type as AppointmentType) || undefined;
-    const doctorId = req.query.doctorId ? parseInt(req.query.doctorId as string, 10) : undefined;
     const dateFrom = (req.query.dateFrom as string) || undefined;
     const dateTo = (req.query.dateTo as string) || undefined;
     const appointmentDate = (req.query.appointmentDate as string) || undefined;
+    const patientId = req.query.patientId ? parseInt(req.query.patientId as string, 10) : undefined;
+
+    const currentUser = (req as any).user;
+    let doctorId = req.query.doctorId ? parseInt(req.query.doctorId as string, 10) : undefined;
+
+    // Nếu tài khoản đang đăng nhập là Bác sĩ -> Tự động lọc theo duy nhất Bác sĩ đó
+    if (currentUser && currentUser.role === UserRole.DENTIST) {
+      doctorId = currentUser.id;
+    }
 
     const result = await appointmentService.getAllAppointments({
       page,
@@ -24,6 +32,7 @@ export const getAppointments = async (req: Request, res: Response, next: NextFun
       status,
       type,
       doctorId,
+      patientId,
       dateFrom,
       dateTo,
       appointmentDate,
@@ -105,7 +114,13 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
 
 export const getTodayStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const stats = await appointmentService.getTodayStats();
+    const currentUser = (req as any).user;
+    let doctorId: number | undefined = undefined;
+    if (currentUser && currentUser.role === UserRole.DENTIST) {
+      doctorId = currentUser.id;
+    }
+
+    const stats = await appointmentService.getTodayStats(doctorId);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: stats,

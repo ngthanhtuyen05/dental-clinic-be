@@ -14,10 +14,15 @@ const startServer = async (): Promise<void> => {
     await connectDB();
 
     // 2. Đồng bộ các Model với Database (Tự động tạo bảng nếu chưa có)
-    // Lưu ý: { alter: true } giúp cập nhật cấu trúc bảng mà không làm mất dữ liệu hiện tại
-    // TODO: Chuyển sang migration tool (Sequelize CLI / Umzug) cho production
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('[Database] All models were synchronized successfully.');
+
+    // Migration an toàn cho các cột mới thêm vào bảng Invoices
+    try {
+      await sequelize.query(`ALTER TABLE Invoices ADD COLUMN discountAmount DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER totalAmount;`);
+    } catch (_) {
+      // Cột đã tồn tại
+    }
 
     // Seed tài khoản admin mặc định
     await seedAdmin();

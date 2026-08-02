@@ -7,9 +7,16 @@ import AppError from '../utils/AppError.js';
 import { UserRole } from '../constants/enums.js';
 import HttpStatus from '../constants/httpStatus.js';
 
+const parseProfileId = (paramId: string): number => {
+  if (!paramId) return 0;
+  const clean = paramId.replace(/^BN0*/i, '');
+  const parsed = parseInt(clean, 10);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export const getTreatmentsByProfileId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const profileId = parseInt(req.params.patientProfileId as string, 10);
+    const profileId = parseProfileId(req.params.patientProfileId as string);
     const authReq = req as AuthenticatedRequest;
 
     // Phân quyền kiểm tra: Nếu là bệnh nhân, phải là người sở hữu profile đó

@@ -40,6 +40,7 @@ export interface AppointmentQueryParamsDto {
   status?: AppointmentStatus;
   type?: AppointmentType;
   doctorId?: number;
+  patientId?: number;
   dateFrom?: string;
   dateTo?: string;
   appointmentDate?: string;
@@ -67,6 +68,8 @@ export class AppointmentResponseDto {
 
   public serviceId: number;
   public serviceName: string;
+  public servicePrice: number;
+  public service?: { id: number; name: string; price: number };
 
   public appointmentDate: string;
   public startTime: string;
@@ -102,6 +105,12 @@ export class AppointmentResponseDto {
 
     this.serviceId = appointment.serviceId;
     this.serviceName = appointment.service ? appointment.service.name : '';
+    this.servicePrice = appointment.service ? Number(appointment.service.price || appointment.service.basePrice || 0) : 0;
+    this.service = appointment.service ? {
+      id: appointment.service.id,
+      name: appointment.service.name,
+      price: Number(appointment.service.price || appointment.service.basePrice || 0),
+    } : undefined;
 
     this.appointmentDate = appointment.appointmentDate;
     this.startTime = appointment.startTime;

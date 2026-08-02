@@ -31,7 +31,7 @@ async function generateAppointmentCode(dateStr: string): Promise<string> {
 }
 
 export const getAllAppointments = async (params: AppointmentQueryParamsDto): Promise<PaginatedAppointmentsDto> => {
-  const { page = 1, limit = 10, keyword, status, type, doctorId, dateFrom, dateTo, appointmentDate } = params;
+  const { page = 1, limit = 10, keyword, status, type, doctorId, patientId, dateFrom, dateTo, appointmentDate } = params;
   const offset = (page - 1) * limit;
 
   const where: any = {};
@@ -39,6 +39,7 @@ export const getAllAppointments = async (params: AppointmentQueryParamsDto): Pro
   if (status) where.status = status;
   if (type) where.type = type;
   if (doctorId) where.dentistId = doctorId;
+  if (patientId) where.patientId = patientId;
 
   if (appointmentDate) {
     where.appointmentDate = appointmentDate;
@@ -340,7 +341,7 @@ export const updateAppointmentStatus = async (id: number, status: AppointmentSta
   return await appointmentRepository.findById(id);
 };
 
-export const getTodayStats = async () => {
+export const getTodayStats = async (doctorId?: number) => {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
   
   // Đếm theo từng status
@@ -348,15 +349,16 @@ export const getTodayStats = async () => {
   const stats: Record<string, number> = {};
 
   for (const s of statuses) {
-    stats[s] = await appointmentRepository.countByStatus({
-      appointmentDate: today,
-      status: s,
-    });
+    const where: any = { appointmentDate: today, status: s };
+    if (doctorId) where.dentistId = doctorId;
+
+    stats[s] = await appointmentRepository.countByStatus(where);
   }
 
-  const total = await appointmentRepository.countByStatus({
-    appointmentDate: today,
-  });
+  const totalWhere: any = { appointmentDate: today };
+  if (doctorId) totalWhere.dentistId = doctorId;
+
+  const total = await appointmentRepository.countByStatus(totalWhere);
 
   return {
     date: today,

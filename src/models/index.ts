@@ -15,6 +15,7 @@ import Prescription from './prescriptionModel.js';
 import PrescriptionItem from './prescriptionItemModel.js';
 import DosageTemplate from './dosageTemplateModel.js';
 import UsageGuide from './usageGuideModel.js';
+import Invoice from './invoiceModel.js';
 
 // ==================== ASSOCIATIONS ====================
 
@@ -94,6 +95,22 @@ PrescriptionItem.belongsTo(Prescription, { foreignKey: 'prescriptionId', as: 'pr
 Product.hasMany(PrescriptionItem, { foreignKey: 'productId', as: 'prescriptionItems' });
 PrescriptionItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
+// Invoice Associations
+PatientProfile.hasMany(Invoice, { foreignKey: 'patientProfileId', as: 'invoices' });
+Invoice.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as: 'patientProfile' });
+
+Appointment.hasMany(Invoice, { foreignKey: 'appointmentId', as: 'invoices' });
+Invoice.belongsTo(Appointment, { foreignKey: 'appointmentId', as: 'appointment' });
+
+TreatmentHistory.hasMany(Invoice, { foreignKey: 'treatmentHistoryId', as: 'invoices' });
+Invoice.belongsTo(TreatmentHistory, { foreignKey: 'treatmentHistoryId', as: 'treatmentHistory' });
+
+Prescription.hasMany(Invoice, { foreignKey: 'prescriptionId', as: 'invoices' });
+Invoice.belongsTo(Prescription, { foreignKey: 'prescriptionId', as: 'prescription' });
+
+User.hasMany(Invoice, { foreignKey: 'createdBy', as: 'createdInvoices' });
+Invoice.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+
 // ==================== EXPORTS ====================
 export {
   User,
@@ -113,4 +130,6 @@ export {
   PrescriptionItem,
   DosageTemplate,
   UsageGuide,
+  Invoice,
 };
+
