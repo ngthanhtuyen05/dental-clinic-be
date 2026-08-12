@@ -1,4 +1,4 @@
-import { Op, type WhereOptions } from 'sequelize';
+import { Op, col, type WhereOptions } from 'sequelize';
 import { User, StaffProfile } from '../models/index.js';
 import { UserRole } from '../constants/enums.js';
 
@@ -51,7 +51,7 @@ export class StaffRepository {
           required: false,
         },
       ],
-      order: [['id', 'DESC']],
+      order: [[col('User.id'), 'DESC']],
       limit: options.limit,
       offset: options.offset,
       distinct: true,
