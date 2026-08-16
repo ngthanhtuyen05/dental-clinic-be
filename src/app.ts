@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import apiRouter from './routes/index.js';
 import { setupSwagger } from './config/swagger.js';
 import env from './config/env.js';
@@ -15,23 +14,8 @@ const app = express();
 // 1. Bảo mật HTTP headers bằng Helmet
 app.use(helmet());
 
-// 2. CORS — đặt trước rate limiter để OPTIONS preflight không bị block
+// 2. CORS
 app.use(cors());
-
-// 3. Giới hạn số lượng request (Rate Limiting) để phòng chống brute-force / DDoS
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 phút
-  max: 100, // Giới hạn tối đa 100 request từ 1 IP trong 15 phút
-  message: {
-    status: 'fail',
-    message: Messages.SERVER.TOO_MANY_REQUESTS,
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-if (!env.isDevelopment) {
-  app.use('/api', limiter);
-}
 
 // 4. Parsing middlewares
 app.use(express.json({ limit: '10kb' }));
