@@ -4,7 +4,8 @@ import HttpStatus from '../constants/httpStatus.js';
 
 export const getSpecialties = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const list = await specialtyService.getSpecialties();
+    const search = (req.query.search || req.query.q || req.query.name) as string | undefined;
+    const list = await specialtyService.getSpecialties(search);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: list.map(item => ({

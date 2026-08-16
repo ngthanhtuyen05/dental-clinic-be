@@ -2,8 +2,8 @@ import { specialtyRepository } from '../repositories/specialtyRepository.js';
 import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
 
-export const getSpecialties = async () => {
-  return specialtyRepository.findAll();
+export const getSpecialties = async (search?: string) => {
+  return specialtyRepository.findAll(search);
 };
 
 export const getSpecialtyById = async (id: number) => {

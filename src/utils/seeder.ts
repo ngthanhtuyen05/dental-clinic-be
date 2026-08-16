@@ -1,5 +1,6 @@
 import User from '../models/userModel.js';
 import PatientProfile from '../models/patientProfileModel.js';
+import Specialty from '../models/specialtyModel.js';
 import { UserRole } from '../constants/enums.js';
 import env from '../config/env.js';
 import { hashPassword } from './password.js';
@@ -113,6 +114,22 @@ export const seedAdmin = async (): Promise<void> => {
         } as any);
         console.log(`[Seeder] Created missing PatientProfile for User #${p.id} (${p.fullName})`);
       }
+    }
+
+    // Auto-seed Specialties if empty
+    const specialtyCount = await Specialty.count();
+    if (specialtyCount === 0) {
+      const defaultSpecialties = [
+        { name: 'Cấy ghép Implant' },
+        { name: 'Niềng răng & Chỉnh nha' },
+        { name: 'Răng sứ & Thẩm mỹ' },
+        { name: 'Phẫu thuật & Nhổ răng khôn' },
+        { name: 'Nha khoa Tổng quát' },
+        { name: 'Nha khoa Trẻ em' },
+        { name: 'Điều trị tủy & Nội nha' },
+      ];
+      await Specialty.bulkCreate(defaultSpecialties);
+      console.log('[Seeder] Default specialties seeded successfully.');
     }
   } catch (error: any) {
     console.error('[Seeder] Error seeding accounts:', error.message);

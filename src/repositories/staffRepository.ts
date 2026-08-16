@@ -1,5 +1,5 @@
 import { Op, col, type WhereOptions } from 'sequelize';
-import { User, StaffProfile } from '../models/index.js';
+import { User, StaffProfile, Specialty } from '../models/index.js';
 import { UserRole } from '../constants/enums.js';
 
 // Staff = Users with role in [admin, dentist, staff] (non-patient)
@@ -9,7 +9,7 @@ export class StaffRepository {
   /**
    * Build WHERE conditions for staff search
    */
-  buildSearchWhere(keyword?: string, role?: string, status?: string): WhereOptions | undefined {
+  buildSearchWhere(keyword?: string, role?: string, status?: string, specialtyId?: number): WhereOptions | undefined {
     const conditions: any[] = [];
 
     // Always filter to staff roles only (exclude patients)
@@ -35,6 +35,10 @@ export class StaffRepository {
       conditions.push({ '$staffProfile.staffStatus$': status });
     }
 
+    if (specialtyId) {
+      conditions.push({ '$staffProfile.specialtyId$': specialtyId });
+    }
+
     return { [Op.and]: conditions } as any;
   }
 
@@ -49,6 +53,13 @@ export class StaffRepository {
           model: StaffProfile,
           as: 'staffProfile',
           required: false,
+          include: [
+            {
+              model: Specialty,
+              as: 'specialtyInfo',
+              required: false,
+            },
+          ],
         },
       ],
       order: [[col('User.id'), 'DESC']],
@@ -70,6 +81,13 @@ export class StaffRepository {
           model: StaffProfile,
           as: 'staffProfile',
           required: false,
+          include: [
+            {
+              model: Specialty,
+              as: 'specialtyInfo',
+              required: false,
+            },
+          ],
         },
       ],
       attributes: { exclude: ['password'] },

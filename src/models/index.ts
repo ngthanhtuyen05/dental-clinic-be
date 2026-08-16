@@ -56,6 +56,10 @@ Service.belongsTo(ServiceCategory, { foreignKey: 'categoryId', as: 'category' })
 User.hasOne(StaffProfile, { foreignKey: 'userId', as: 'staffProfile' });
 StaffProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+// StaffProfile ↔ Specialty (N:1)
+StaffProfile.belongsTo(Specialty, { foreignKey: 'specialtyId', as: 'specialtyInfo' });
+Specialty.hasMany(StaffProfile, { foreignKey: 'specialtyId', as: 'staffProfiles' });
+
 // Supplier ↔ Product (1:N)
 Supplier.hasMany(Product, { foreignKey: 'supplierId', as: 'products' });
 Product.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });

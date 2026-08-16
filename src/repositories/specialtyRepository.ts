@@ -1,8 +1,17 @@
+import { Op, type WhereOptions } from 'sequelize';
 import { Specialty } from '../models/index.js';
 
 export class SpecialtyRepository {
-  async findAll() {
+  async findAll(search?: string) {
+    const where: any = {};
+    if (search?.trim()) {
+      where.name = {
+        [Op.like]: `%${search.trim()}%`,
+      };
+    }
+
     return Specialty.findAll({
+      where,
       order: [['name', 'ASC']],
     });
   }

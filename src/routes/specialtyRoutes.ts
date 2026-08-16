@@ -12,13 +12,14 @@ import { UserRole } from '../constants/enums.js';
 
 const router = express.Router();
 
-// Tất cả API cấu hình chuyên khoa yêu cầu đăng nhập + vai trò Admin
+// ── Public Routes (Xem danh sách chuyên khoa không cần đăng nhập) ──
+router.get('/', getSpecialties);
+
+// ── Protected Routes (Chỉ Admin mới có quyền thêm/sửa/xóa) ──
 router.use(protect);
 router.use(restrictTo(UserRole.ADMIN));
 
-router.route('/')
-  .get(getSpecialties)
-  .post(validate(createSpecialtySchema), createSpecialty);
+router.post('/', validate(createSpecialtySchema), createSpecialty);
 
 router.route('/:id')
   .patch(validate(updateSpecialtySchema), updateSpecialty)
