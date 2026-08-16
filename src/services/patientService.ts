@@ -129,7 +129,7 @@ export const updatePatient = async (id: number, data: UpdatePatientRequestDto) =
       isPregnant: profileData.isPregnant,
       dentalHistory: profileData.dentalHistory,
       chiefComplaint: profileData.chiefComplaint,
-    });
+    } as any);
   }
 
   return await patientRepository.findById(id);
