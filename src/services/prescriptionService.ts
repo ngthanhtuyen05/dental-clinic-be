@@ -45,7 +45,7 @@ export const getPrescriptions = async (params: {
     where[Op.or] = [
       { code: { [Op.like]: kw } },
       { diagnosis: { [Op.like]: kw } },
-      { '$patientProfile.fullName$': { [Op.like]: kw } },
+      { '$patientProfile.user.fullName$': { [Op.like]: kw } },
     ];
   }
 
@@ -80,7 +80,7 @@ export const getPrescriptions = async (params: {
           {
             model: Product,
             as: 'product',
-            attributes: ['id', 'code', 'name', 'unit', 'sellingPrice', 'unitPrice', 'price'],
+            attributes: ['id', 'code', 'name', 'unit'],
           },
         ],
       },
