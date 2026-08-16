@@ -14,7 +14,15 @@ export const getSpecialtyById = async (id: number) => {
   return spec;
 };
 
-export const createSpecialty = async (data: { name: string }) => {
+export const getSpecialtyBySlug = async (slug: string) => {
+  const spec = await specialtyRepository.findBySlug(slug);
+  if (!spec) {
+    throw new AppError('Không tìm thấy chuyên khoa', HttpStatus.NOT_FOUND);
+  }
+  return spec;
+};
+
+export const createSpecialty = async (data: { name: string; slug?: string }) => {
   const existing = await specialtyRepository.findByName(data.name);
   if (existing) {
     throw new AppError('Chuyên khoa này đã tồn tại', HttpStatus.CONFLICT);
@@ -22,7 +30,7 @@ export const createSpecialty = async (data: { name: string }) => {
   return specialtyRepository.create(data);
 };
 
-export const updateSpecialty = async (id: number, data: { name: string }) => {
+export const updateSpecialty = async (id: number, data: { name: string; slug?: string }) => {
   const existing = await specialtyRepository.findByName(data.name);
   if (existing && existing.id !== id) {
     throw new AppError('Chuyên khoa này đã tồn tại', HttpStatus.CONFLICT);

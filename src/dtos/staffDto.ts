@@ -9,6 +9,7 @@ export class StaffResponseDto {
   specialty: string | null;
   specialtyId: number | null;
   specialtyName: string | null;
+  specialtySlug: string | null;
   hireDate: string | null;
   gender: string | null;
   dateOfBirth: string | null;
@@ -42,6 +43,7 @@ export class StaffResponseDto {
     this.specialty = staff.staffProfile?.specialty || null;
     this.specialtyId = staff.staffProfile?.specialtyId || null;
     this.specialtyName = staff.staffProfile?.specialtyInfo?.name || null;
+    this.specialtySlug = staff.staffProfile?.specialtyInfo?.slug || null;
     this.hireDate = staff.staffProfile?.hireDate || null;
     this.gender = staff.staffProfile?.gender || null;
     this.dateOfBirth = staff.staffProfile?.dateOfBirth || null;

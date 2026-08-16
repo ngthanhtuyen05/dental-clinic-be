@@ -4,6 +4,7 @@ import sequelize from '../config/db.js';
 export interface SpecialtyModel extends Model<InferAttributes<SpecialtyModel>, InferCreationAttributes<SpecialtyModel>> {
   id: CreationOptional<number>;
   name: string;
+  slug: CreationOptional<string>;
   createdAt?: CreationOptional<Date>;
   updatedAt?: CreationOptional<Date>;
 }
@@ -17,6 +18,11 @@ const Specialty = sequelize.define<SpecialtyModel>('Specialty', {
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
+    unique: true,
+  },
+  slug: {
+    type: DataTypes.STRING(120),
+    allowNull: true,
     unique: true,
   },
 }, {

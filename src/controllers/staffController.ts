@@ -15,8 +15,9 @@ export const getStaffList = async (req: Request, res: Response, next: NextFuncti
     const role = (req.query.role as string) || undefined;
     const status = (req.query.status as string) || undefined;
     const specialtyId = req.query.specialtyId ? parseInt(req.query.specialtyId as string, 10) : undefined;
+    const specialtySlug = (req.query.specialtySlug as string) || (req.query.specialty as string) || undefined;
 
-    const result = await staffService.getAllStaff({ page, limit, keyword, role, status, specialtyId });
+    const result = await staffService.getAllStaff({ page, limit, keyword, role, status, specialtyId, specialtySlug });
     const formatted = StaffResponseDto.toList(result.staff);
 
     res.status(HttpStatus.OK).json({

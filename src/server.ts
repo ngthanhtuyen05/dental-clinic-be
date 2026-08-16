@@ -24,6 +24,30 @@ const startServer = async (): Promise<void> => {
       // Cột đã tồn tại
     }
 
+    // Migration an toàn cho cột slug trong Specialties
+    try {
+      await sequelize.query(`ALTER TABLE Specialties ADD COLUMN slug VARCHAR(120) NULL;`);
+    } catch (_) {}
+    try {
+      const [specialties]: any = await sequelize.query(`SELECT id, name, slug FROM Specialties;`);
+      for (const spec of specialties) {
+        if (!spec.slug && spec.name) {
+          const genSlug = spec.name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, 'd')
+            .replace(/[^a-z0-9\s-]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+          await sequelize.query(`UPDATE Specialties SET slug = ? WHERE id = ?;`, {
+            replacements: [genSlug, spec.id],
+          });
+        }
+      }
+    } catch (_) {}
+
     // Migration an toàn cho các cột Bác sĩ mới trong StaffProfiles
     const staffColumns = [
       'gender VARCHAR(20) NULL',

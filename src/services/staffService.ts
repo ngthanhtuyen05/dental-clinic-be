@@ -11,12 +11,13 @@ interface GetStaffParams {
   role?: string;
   status?: string;
   specialtyId?: number;
+  specialtySlug?: string;
 }
 
 export const getAllStaff = async (params: GetStaffParams) => {
-  const { page, limit, keyword, role, status, specialtyId } = params;
+  const { page, limit, keyword, role, status, specialtyId, specialtySlug } = params;
   const offset = (page - 1) * limit;
-  const where = staffRepository.buildSearchWhere(keyword, role, status, specialtyId);
+  const where = staffRepository.buildSearchWhere(keyword, role, status, specialtyId, specialtySlug);
 
   const [{ rows, count }, roleCounts] = await Promise.all([
     staffRepository.findAndCount({ where, limit, offset }),

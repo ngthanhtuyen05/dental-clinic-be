@@ -9,7 +9,7 @@ export class StaffRepository {
   /**
    * Build WHERE conditions for staff search
    */
-  buildSearchWhere(keyword?: string, role?: string, status?: string, specialtyId?: number): WhereOptions | undefined {
+  buildSearchWhere(keyword?: string, role?: string, status?: string, specialtyId?: number, specialtySlug?: string): WhereOptions | undefined {
     const conditions: any[] = [];
 
     // Always filter to staff roles only (exclude patients)
@@ -37,6 +37,10 @@ export class StaffRepository {
 
     if (specialtyId) {
       conditions.push({ '$staffProfile.specialtyId$': specialtyId });
+    }
+
+    if (specialtySlug) {
+      conditions.push({ '$staffProfile.specialtyInfo.slug$': specialtySlug });
     }
 
     return { [Op.and]: conditions } as any;
