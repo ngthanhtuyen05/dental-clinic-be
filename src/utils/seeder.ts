@@ -11,38 +11,17 @@ export const seedAdmin = async (): Promise<void> => {
     const defaultHashedPassword = await hashPassword(defaultPassword);
     const adminHashedPassword = await hashPassword(env.ADMIN_PASSWORD || 'Admin@123456');
 
-    const accounts = [
-      // ── Bác sĩ 1, 2, 3, 4 (Email dễ nhớ, Tên thật) ──
-      {
-        fullName: 'BS. Nguyễn Quốc Anh',
-        email: 'bacsi1@dental.com',
-        phone: '0981000001',
-        role: UserRole.DENTIST,
-        password: defaultHashedPassword,
-      },
-      {
-        fullName: 'BS. Lê Thị Mai',
-        email: 'bacsi2@dental.com',
-        phone: '0981000002',
-        role: UserRole.DENTIST,
-        password: defaultHashedPassword,
-      },
-      {
-        fullName: 'BS. Trần Văn Tuấn',
-        email: 'bacsi3@dental.com',
-        phone: '0981000003',
-        role: UserRole.DENTIST,
-        password: defaultHashedPassword,
-      },
-      {
-        fullName: 'BS. Hoàng Thị Yến',
-        email: 'bacsi4@dental.com',
-        phone: '0981000004',
-        role: UserRole.DENTIST,
-        password: defaultHashedPassword,
-      },
+    // Dọn dẹp các tài khoản bác sĩ mock đã seed trước đây nếu có
+    const mockDoctorEmails = [
+      'bacsi1@dental.com',
+      'bacsi2@dental.com',
+      'bacsi3@dental.com',
+      'bacsi4@dental.com',
+    ];
+    await User.destroy({ where: { email: mockDoctorEmails } });
 
-      // ── Lễ tân 1, 2, 3, 4 (Email dễ nhớ, Tên thật) ──
+    const accounts = [
+      // ── Lễ tân 1, 2, 3, 4 ──
       {
         fullName: 'Lễ tân Nguyễn Thu Hà',
         email: 'letan1@dental.com',
@@ -120,13 +99,13 @@ export const seedAdmin = async (): Promise<void> => {
     const specialtyCount = await Specialty.count();
     if (specialtyCount === 0) {
       const defaultSpecialties = [
-        { name: 'Cấy ghép Implant' },
-        { name: 'Niềng răng & Chỉnh nha' },
-        { name: 'Răng sứ & Thẩm mỹ' },
-        { name: 'Phẫu thuật & Nhổ răng khôn' },
-        { name: 'Nha khoa Tổng quát' },
-        { name: 'Nha khoa Trẻ em' },
-        { name: 'Điều trị tủy & Nội nha' },
+        { name: 'Cấy ghép Implant', slug: 'cay-ghep-implant' },
+        { name: 'Niềng răng & Chỉnh nha', slug: 'nieng-rang-chinh-nha' },
+        { name: 'Răng sứ & Thẩm mỹ', slug: 'rang-su-tham-my' },
+        { name: 'Phẫu thuật & Nhổ răng khôn', slug: 'phau-thuat-nho-rang-khon' },
+        { name: 'Nha khoa Tổng quát', slug: 'nha-khoa-tong-quat' },
+        { name: 'Nha khoa Trẻ em', slug: 'nha-khoa-tre-em' },
+        { name: 'Điều trị tủy & Nội nha', slug: 'dieu-tri-tuy-noi-nha' },
       ];
       await Specialty.bulkCreate(defaultSpecialties);
       console.log('[Seeder] Default specialties seeded successfully.');
