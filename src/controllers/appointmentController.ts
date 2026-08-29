@@ -132,18 +132,21 @@ export const getTodayStats = async (req: Request, res: Response, next: NextFunct
 
 export const getAvailableSlots = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const dentistId = parseInt(req.query.dentistId as string, 10);
+    const rawDentistId = req.query.dentistId as string;
+    const dentistId = rawDentistId && !isNaN(parseInt(rawDentistId, 10)) ? parseInt(rawDentistId, 10) : undefined;
     const date = req.query.date as string;
+    const rawDuration = req.query.durationMinutes as string;
+    const durationMinutes = rawDuration && !isNaN(parseInt(rawDuration, 10)) ? parseInt(rawDuration, 10) : 30;
 
-    if (isNaN(dentistId) || !date) {
+    if (!date) {
       res.status(HttpStatus.BAD_REQUEST).json({
         status: 'fail',
-        message: 'Thiếu thông tin bác sĩ (dentistId) hoặc ngày khám (date)',
+        message: 'Thiếu thông tin ngày khám (date)',
       });
       return;
     }
 
-    const slots = await appointmentService.getAvailableSlots(dentistId, date);
+    const slots = await appointmentService.getAvailableSlots(dentistId, date, durationMinutes);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: slots,

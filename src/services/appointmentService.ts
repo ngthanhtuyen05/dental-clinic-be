@@ -185,7 +185,15 @@ export const createNewAppointment = async (
   // 4. Tự sinh mã code
   const code = await generateAppointmentCode(appointmentDate);
 
-  // 5. Tạo lịch hẹn vào Database
+  // 5. Kiểm tra trùng lịch trước khi tạo
+  if (dentistId) {
+    const conflicts = await appointmentRepository.findConflicting(dentistId, appointmentDate, startTime, endTime);
+    if (conflicts.length > 0) {
+      throw new AppError('Bác sĩ đã có lịch hẹn khác trong khung giờ này. Vui lòng chọn khung giờ khác.', 400);
+    }
+  }
+
+  // 6. Tạo lịch hẹn vào Database
   const appt = await appointmentRepository.create({
     code,
     patientId,
@@ -367,15 +375,19 @@ export const getTodayStats = async (doctorId?: number) => {
   };
 };
 
-export const getAvailableSlots = async (dentistId: number, date: string) => {
-  const dentist = await userRepository.findById(dentistId);
-  if (!dentist) {
-    throw new AppError('Bác sĩ không tồn tại.', 400);
+export const getAvailableSlots = async (
+  dentistId?: number,
+  date?: string,
+  durationMinutes: number = 30
+) => {
+  if (!date) {
+    throw new AppError('Thiếu thông tin ngày khám (date).', 400);
   }
 
   // Khung giờ làm việc mặc định từ 08:00 đến 17:30
-  // Nghỉ trưa từ 12:00 đến 13:30
-  // Mỗi slot mặc định 30 phút
+  // Ca sáng: 08:00 đến 12:00
+  // Nghỉ trưa: 12:00 đến 13:30
+  // Ca chiều: 13:30 đến 17:30
   const allSlots = [
     { start: '08:00', end: '08:30' },
     { start: '08:30', end: '09:00' },
@@ -396,33 +408,118 @@ export const getAvailableSlots = async (dentistId: number, date: string) => {
     { start: '17:00', end: '17:30' },
   ];
 
-  // Lấy các lịch hẹn hiện có trong ngày của bác sĩ
-  const existingAppts = await appointmentRepository.findAndCount({
-    where: {
-      dentistId,
-      appointmentDate: date,
-      status: {
-        [Op.notIn]: ['cancelled', 'no_show'],
-      },
-    },
-    limit: 100,
-    offset: 0,
-  });
+  // Helper check if time slot is in the past for today (UTC+7 / Vietnam time)
+  const now = new Date();
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
+  const currentHourMinute = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now);
 
-  const slots = allSlots.map((slot) => {
-    // Kiểm tra xem slot này có bị xung đột với lịch hẹn nào không
-    const isConflict = existingAppts.rows.some((appt) => {
-      return (slot.start < appt.endTime && slot.end > appt.startTime);
+  const isToday = date === todayStr;
+
+  if (dentistId) {
+    const dentist = await userRepository.findById(dentistId);
+    if (!dentist) {
+      throw new AppError('Bác sĩ không tồn tại.', 400);
+    }
+
+    const existingAppts = await appointmentRepository.findAndCount({
+      where: {
+        dentistId,
+        appointmentDate: date,
+        status: {
+          [Op.notIn]: ['cancelled', 'no_show'],
+        },
+      },
+      limit: 100,
+      offset: 0,
     });
 
-    return {
-      startTime: slot.start,
-      endTime: slot.end,
-      available: !isConflict,
-    };
-  });
+    const slots = allSlots.map((slot) => {
+      const isPast = isToday && slot.start <= currentHourMinute;
+      const slotEndTime = calculateEndTime(slot.start, durationMinutes);
+      const isMorning = slot.start < '12:00';
+      const maxShiftEnd = isMorning ? '12:00' : '17:30';
+      const exceedsShift = slotEndTime > maxShiftEnd;
 
-  return slots;
+      const isConflict = existingAppts.rows.some((appt) => {
+        return slot.start < appt.endTime && slotEndTime > appt.startTime;
+      });
+
+      return {
+        startTime: slot.start,
+        endTime: slot.end,
+        available: !isPast && !isConflict && !exceedsShift,
+        isPast,
+        isBooked: isConflict,
+      };
+    });
+
+    return slots;
+  } else {
+    // Khách chọn "Bác sĩ bất kỳ / tự động": kiểm tra xem có bác sĩ nào rảnh không
+    const dentists = await User.findAll({
+      where: { role: UserRole.DENTIST },
+      attributes: ['id', 'fullName'],
+    });
+
+    if (dentists.length === 0) {
+      return allSlots.map((slot) => {
+        const isPast = isToday && slot.start <= currentHourMinute;
+        return {
+          startTime: slot.start,
+          endTime: slot.end,
+          available: !isPast,
+          isPast,
+          isBooked: false,
+        };
+      });
+    }
+
+    const dentistIds = dentists.map((d) => d.id);
+    const existingAppts = await appointmentRepository.findAndCount({
+      where: {
+        dentistId: { [Op.in]: dentistIds },
+        appointmentDate: date,
+        status: {
+          [Op.notIn]: ['cancelled', 'no_show'],
+        },
+      },
+      limit: 500,
+      offset: 0,
+    });
+
+    const slots = allSlots.map((slot) => {
+      const isPast = isToday && slot.start <= currentHourMinute;
+      const slotEndTime = calculateEndTime(slot.start, durationMinutes);
+      const isMorning = slot.start < '12:00';
+      const maxShiftEnd = isMorning ? '12:00' : '17:30';
+      const exceedsShift = slotEndTime > maxShiftEnd;
+
+      // Tìm xem có bác sĩ nào còn trống trong khung giờ này không
+      const freeDentist = dentistIds.find((dId) => {
+        const hasConflict = existingAppts.rows.some((appt) => {
+          return appt.dentistId === dId && slot.start < appt.endTime && slotEndTime > appt.startTime;
+        });
+        return !hasConflict;
+      });
+
+      const isAllBooked = !freeDentist;
+
+      return {
+        startTime: slot.start,
+        endTime: slot.end,
+        available: !isPast && !isAllBooked && !exceedsShift,
+        isPast,
+        isBooked: isAllBooked,
+      };
+    });
+
+    return slots;
+  }
 };
 
 export const getMyAppointments = async (
