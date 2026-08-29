@@ -1,9 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import * as appointmentService from '../services/appointmentService.js';
-import { AppointmentResponseDto } from '../dtos/appointmentDto.js';
-import HttpStatus from '../constants/httpStatus.js';
-import Messages from '../constants/messages.js';
+import { NextFunction, Request, Response } from 'express';
 import { AppointmentStatus, AppointmentType, UserRole } from '../constants/enums.js';
+import HttpStatus from '../constants/httpStatus.js';
+import { AppointmentResponseDto } from '../dtos/appointmentDto.js';
+import * as appointmentService from '../services/appointmentService.js';
 
 export const getAppointments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
