@@ -1,4 +1,5 @@
 import User from './userModel.js';
+import Role from './roleModel.js';
 import PatientProfile from './patientProfileModel.js';
 import RefreshToken from './refreshTokenModel.js';
 import Appointment from './appointmentModel.js';
@@ -18,6 +19,10 @@ import UsageGuide from './usageGuideModel.js';
 import Invoice from './invoiceModel.js';
 
 // ==================== ASSOCIATIONS ====================
+
+// Role ↔ User (1:N)
+Role.hasMany(User, { foreignKey: 'roleId', as: 'users' });
+User.belongsTo(Role, { foreignKey: 'roleId', as: 'roleInfo' });
 
 // User ↔ PatientProfile (1:1)
 User.hasOne(PatientProfile, { foreignKey: 'userId', as: 'patientProfile' });
@@ -118,6 +123,7 @@ Invoice.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 // ==================== EXPORTS ====================
 export {
   User,
+  Role,
   PatientProfile,
   RefreshToken,
   Appointment,

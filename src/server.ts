@@ -17,6 +17,11 @@ const startServer = async (): Promise<void> => {
     await sequelize.sync();
     console.log('[Database] All models were synchronized successfully.');
 
+    // Migration an toàn cho cột roleId trong Users
+    try {
+      await sequelize.query(`ALTER TABLE Users ADD COLUMN roleId INT NULL;`);
+    } catch (_) {}
+
     // Migration an toàn cho các cột mới thêm vào bảng Invoices
     try {
       await sequelize.query(`ALTER TABLE Invoices ADD COLUMN discountAmount DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER totalAmount;`);

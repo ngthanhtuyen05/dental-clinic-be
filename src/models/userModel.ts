@@ -9,6 +9,7 @@ export interface UserModel extends Model<InferAttributes<UserModel>, InferCreati
   password: string;
   phone: CreationOptional<string | null>;
   role: CreationOptional<UserRole>;
+  roleId: CreationOptional<number | null>;
   createdAt?: CreationOptional<Date>;
   updatedAt?: CreationOptional<Date>;
 }
@@ -42,6 +43,11 @@ const User = sequelize.define<UserModel>('User', {
   role: {
     type: DataTypes.ENUM(...Object.values(UserRole)),
     defaultValue: UserRole.PATIENT,
+  },
+  roleId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'Roles', key: 'id' },
   },
 }, {
   timestamps: true,

@@ -4,9 +4,26 @@ import Messages from '../constants/messages.js';
 import type { AuthResponseDto, LoginRequestDto, RegisterUserRequestDto, TokenPairDto } from '../dtos/userDto.js';
 import { refreshTokenRepository } from '../repositories/refreshTokenRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
+import { Role } from '../models/index.js';
+import type { UserModel } from '../models/userModel.js';
 import AppError from '../utils/AppError.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, REFRESH_TOKEN_EXPIRY_DAYS } from '../utils/jwt.js';
 import { comparePassword, hashPassword } from '../utils/password.js';
+
+export const getUserPermissions = async (user: UserModel): Promise<string[]> => {
+  let roleRecord = null;
+  if (user.roleId) {
+    roleRecord = await Role.findByPk(user.roleId);
+  }
+  if (!roleRecord && user.role) {
+    roleRecord = await Role.findOne({ where: { code: user.role } });
+  }
+
+  if (roleRecord && Array.isArray(roleRecord.permissions)) {
+    return roleRecord.permissions;
+  }
+  return [];
+};
 
 const createTokenPair = async (userId: number): Promise<TokenPairDto> => {
   const accessToken = signAccessToken(userId);
@@ -22,7 +39,7 @@ const createTokenPair = async (userId: number): Promise<TokenPairDto> => {
   return { accessToken, refreshToken };
 };
 
-export const loginUser = async (credentials: LoginRequestDto): Promise<AuthResponseDto> => {
+export const loginUser = async (credentials: LoginRequestDto): Promise<AuthResponseDto & { permissions: string[] }> => {
   const { email, password } = credentials;
 
   const user = await userRepository.findByEmail(email);
@@ -36,7 +53,8 @@ export const loginUser = async (credentials: LoginRequestDto): Promise<AuthRespo
   }
 
   const tokens = await createTokenPair(user.id);
-  return { ...tokens, user };
+  const permissions = await getUserPermissions(user);
+  return { ...tokens, user, permissions };
 };
 
 export const refreshUserToken = async (token: string): Promise<TokenPairDto> => {

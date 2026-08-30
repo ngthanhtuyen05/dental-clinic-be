@@ -53,14 +53,21 @@ export class UserResponseDto {
   public email: string;
   public phone: string | null;
   public role: string;
+  public roleId: number | null;
+  public permissions: string[];
   public createdAt: Date;
 
-  constructor(user: UserModel) {
+  constructor(user: UserModel | any, permissions: string[] = []) {
     this.id = user.id;
     this.fullName = user.fullName;
     this.email = user.email;
-    this.phone = user.phone;
+    this.phone = user.phone || null;
     this.role = user.role;
+    this.roleId = user.roleId || user.roleInfo?.id || null;
+    this.permissions =
+      permissions.length > 0
+        ? permissions
+        : user.roleInfo?.permissions || user.permissions || [];
     this.createdAt = user.createdAt || new Date();
   }
 

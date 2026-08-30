@@ -13,6 +13,7 @@ import productRoutes from './productRoutes.js';
 import stockRoutes from './stockRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
 import invoiceRoutes from './invoiceRoutes.js';
+import roleRoutes from './roleRoutes.js';
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.use('/patient-profiles', patientProfileRoutes);
 router.use('/patients', patientRoutes);
 router.use('/services', serviceRoutes);
 router.use('/staff', staffRoutes);
+router.use('/roles', roleRoutes);
 router.use('/specialties', specialtyRoutes);
 router.use('/suppliers', supplierRoutes);
 router.use('/products', productRoutes);
