@@ -11,6 +11,7 @@ import {
   confirmMomoDemoPayment,
 } from '../controllers/invoiceController.js';
 import { protect } from '../middlewares/authMiddleware.js';
+import { checkPermission } from '../middlewares/permissionMiddleware.js';
 
 const router = express.Router();
 
@@ -23,14 +24,14 @@ router.post('/:id/momo-demo-confirm', confirmMomoDemoPayment);
 router.use(protect);
 
 router.route('/')
-  .post(createInvoice)
-  .get(getAllInvoices);
+  .post(checkPermission('invoices.create'), createInvoice)
+  .get(checkPermission('invoices.view'), getAllInvoices);
 
 router.route('/:id')
-  .get(getInvoiceById);
+  .get(checkPermission('invoices.view'), getInvoiceById);
 
-router.patch('/:id/pay', payInvoice);
-router.post('/:id/momo', createMomoPayment);
-router.patch('/:id/cancel', cancelInvoice);
+router.patch('/:id/pay', checkPermission('invoices.payment'), payInvoice);
+router.post('/:id/momo', checkPermission('invoices.payment'), createMomoPayment);
+router.patch('/:id/cancel', checkPermission('invoices.cancel'), cancelInvoice);
 
 export default router;

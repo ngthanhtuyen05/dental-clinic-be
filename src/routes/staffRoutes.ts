@@ -3,10 +3,10 @@ import {
   getStaffList, getStaffDetail, getStaffStats,
   createStaff, updateStaff, resetPassword, toggleStatus,
 } from '../controllers/staffController.js';
-import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+import { protect } from '../middlewares/authMiddleware.js';
+import { checkPermission } from '../middlewares/permissionMiddleware.js';
 import { validate } from '../middlewares/validate.js';
 import { createStaffSchema, updateStaffSchema } from '../validations/staffValidation.js';
-import { UserRole } from '../constants/enums.js';
 
 const router = express.Router();
 
@@ -14,15 +14,14 @@ const router = express.Router();
 router.get('/', getStaffList);
 router.get('/:id', getStaffDetail);
 
-// ── Protected Admin Routes ──
+// ── Protected Routes with RBAC ──
 router.use(protect);
-router.use(restrictTo(UserRole.ADMIN));
 
-router.post('/', validate(createStaffSchema), createStaff);
-router.get('/stats', getStaffStats);
+router.post('/', checkPermission('staff.create'), validate(createStaffSchema), createStaff);
+router.get('/stats', checkPermission('staff.view'), getStaffStats);
 
-router.patch('/:id', validate(updateStaffSchema), updateStaff);
-router.patch('/:id/reset-password', resetPassword);
-router.patch('/:id/toggle-status', toggleStatus);
+router.patch('/:id', checkPermission('staff.edit'), validate(updateStaffSchema), updateStaff);
+router.patch('/:id/reset-password', checkPermission('staff.edit'), resetPassword);
+router.patch('/:id/toggle-status', checkPermission('staff.edit'), toggleStatus);
 
 export default router;

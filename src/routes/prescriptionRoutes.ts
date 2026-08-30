@@ -10,24 +10,25 @@ import {
   createUsageGuide,
 } from '../controllers/prescriptionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
+import { checkPermission } from '../middlewares/permissionMiddleware.js';
 
 const router = express.Router();
 
 router.use(protect);
 
-router.get('/dosage-templates', getDosageTemplates);
-router.post('/dosage-templates', createDosageTemplate);
+router.get('/dosage-templates', checkPermission('prescriptions.view'), getDosageTemplates);
+router.post('/dosage-templates', checkPermission('prescriptions.templates'), createDosageTemplate);
 
-router.get('/usage-guides', getUsageGuides);
-router.post('/usage-guides', createUsageGuide);
+router.get('/usage-guides', checkPermission('prescriptions.view'), getUsageGuides);
+router.post('/usage-guides', checkPermission('prescriptions.templates'), createUsageGuide);
 
 router.route('/')
-  .get(getPrescriptions)
-  .post(createPrescription);
+  .get(checkPermission('prescriptions.view'), getPrescriptions)
+  .post(checkPermission('prescriptions.create'), createPrescription);
 
 router.route('/:id')
-  .get(getPrescription);
+  .get(checkPermission('prescriptions.view'), getPrescription);
 
-router.patch('/:id/status', updatePrescriptionStatus);
+router.patch('/:id/status', checkPermission('prescriptions.edit'), updatePrescriptionStatus);
 
 export default router;

@@ -2,8 +2,8 @@ import express from 'express';
 import { getUsers, getUser, createUser, updateUser, deleteUser } from '../controllers/userController.js';
 import { validate } from '../middlewares/validate.js';
 import { createUserSchema, updateUserSchema } from '../validations/userValidation.js';
-import { protect, restrictTo, restrictToOwnerOrAdmin } from '../middlewares/authMiddleware.js';
-import { UserRole } from '../constants/enums.js';
+import { protect, restrictToOwnerOrAdmin } from '../middlewares/authMiddleware.js';
+import { checkPermission } from '../middlewares/permissionMiddleware.js';
 
 const router = express.Router();
 
@@ -11,12 +11,12 @@ const router = express.Router();
 router.use(protect);
 
 router.route('/')
-  .get(restrictTo(UserRole.ADMIN, UserRole.DENTIST, UserRole.STAFF), getUsers)
-  .post(restrictTo(UserRole.ADMIN), validate(createUserSchema), createUser);
+  .get(checkPermission('staff.view'), getUsers)
+  .post(checkPermission('staff.create'), validate(createUserSchema), createUser);
 
 router.route('/:id')
-  .get(getUser)
+  .get(checkPermission('staff.view'), getUser)
   .patch(restrictToOwnerOrAdmin, validate(updateUserSchema), updateUser)
-  .delete(restrictTo(UserRole.ADMIN), deleteUser);
+  .delete(checkPermission('staff.delete'), deleteUser);
 
 export default router;
