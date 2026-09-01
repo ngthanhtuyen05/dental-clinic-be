@@ -18,6 +18,9 @@ import DosageTemplate from './dosageTemplateModel.js';
 import UsageGuide from './usageGuideModel.js';
 import Invoice from './invoiceModel.js';
 import Setting from './settingModel.js';
+import LabOrder from './labOrderModel.js';
+import LabOrderHistory from './labOrderHistoryModel.js';
+import LabWarrantyCard from './labWarrantyCardModel.js';
 
 // ==================== ASSOCIATIONS ====================
 
@@ -125,6 +128,33 @@ Invoice.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 User.hasMany(Setting, { foreignKey: 'updatedBy', as: 'updatedSettings' });
 Setting.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
 
+// LabOrder Associations
+PatientProfile.hasMany(LabOrder, { foreignKey: 'patientProfileId', as: 'labOrders' });
+LabOrder.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as: 'patientProfile' });
+
+User.hasMany(LabOrder, { foreignKey: 'dentistId', as: 'dentistLabOrders' });
+LabOrder.belongsTo(User, { foreignKey: 'dentistId', as: 'dentist' });
+
+TreatmentHistory.hasMany(LabOrder, { foreignKey: 'treatmentHistoryId', as: 'labOrders' });
+LabOrder.belongsTo(TreatmentHistory, { foreignKey: 'treatmentHistoryId', as: 'treatmentHistory' });
+
+Supplier.hasMany(LabOrder, { foreignKey: 'supplierId', as: 'labOrders' });
+LabOrder.belongsTo(Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+
+User.hasMany(LabOrder, { foreignKey: 'createdBy', as: 'createdLabOrders' });
+LabOrder.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+
+// LabOrderHistory Associations
+LabOrder.hasMany(LabOrderHistory, { foreignKey: 'labOrderId', as: 'statusHistories' });
+LabOrderHistory.belongsTo(LabOrder, { foreignKey: 'labOrderId', as: 'labOrder' });
+
+// LabWarrantyCard Associations
+LabOrder.hasOne(LabWarrantyCard, { foreignKey: 'labOrderId', as: 'warrantyCard' });
+LabWarrantyCard.belongsTo(LabOrder, { foreignKey: 'labOrderId', as: 'labOrder' });
+
+PatientProfile.hasMany(LabWarrantyCard, { foreignKey: 'patientProfileId', as: 'warrantyCards' });
+LabWarrantyCard.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as: 'patientProfile' });
+
 // ==================== EXPORTS ====================
 export {
   User,
@@ -147,5 +177,8 @@ export {
   UsageGuide,
   Invoice,
   Setting,
+  LabOrder,
+  LabOrderHistory,
+  LabWarrantyCard,
 };
 

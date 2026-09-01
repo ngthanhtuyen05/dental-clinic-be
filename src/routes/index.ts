@@ -15,6 +15,7 @@ import prescriptionRoutes from './prescriptionRoutes.js';
 import invoiceRoutes from './invoiceRoutes.js';
 import roleRoutes from './roleRoutes.js';
 import settingRoutes from './settingRoutes.js';
+import labRoutes from './labRoutes.js';
 
 const router = express.Router();
 
@@ -46,6 +47,7 @@ router.use('/stock', stockRoutes);
 router.use('/prescriptions', prescriptionRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/settings', settingRoutes);
+router.use('/labo', labRoutes);
 router.use('/', treatmentHistoryRoutes);
 
 export default router;

@@ -3,6 +3,10 @@ import Role from '../models/roleModel.js';
 import PatientProfile from '../models/patientProfileModel.js';
 import Specialty from '../models/specialtyModel.js';
 import Setting from '../models/settingModel.js';
+import Supplier from '../models/supplierModel.js';
+import LabOrder from '../models/labOrderModel.js';
+import LabOrderHistory from '../models/labOrderHistoryModel.js';
+import LabWarrantyCard from '../models/labWarrantyCardModel.js';
 import { UserRole } from '../constants/enums.js';
 import env from '../config/env.js';
 import { hashPassword } from './password.js';
@@ -15,6 +19,7 @@ export const ALL_SYSTEM_PERMISSIONS = [
   'inventory.view', 'inventory.import', 'inventory.adjust', 'inventory.suppliers', 'inventory.transactions',
   'staff.view', 'staff.create', 'staff.edit', 'staff.specialties', 'staff.roles', 'staff.delete',
   'invoices.view', 'invoices.create', 'invoices.payment', 'invoices.discount', 'invoices.cancel',
+  'labo.view', 'labo.create', 'labo.edit', 'labo.warranty', 'labo.reconciliation',
   'settings.clinic_info', 'settings.audit_log', 'settings.backup',
 ];
 
@@ -254,6 +259,9 @@ export const seedAdmin = async (): Promise<void> => {
 
     // Auto-seed Default Settings if empty
     await seedSettings();
+
+    // Auto-seed Labo Data if empty
+    await seedLaboData();
   } catch (error: any) {
     console.error('[Seeder] Error seeding accounts:', error.message);
   }
@@ -324,4 +332,183 @@ export const seedSettings = async (): Promise<void> => {
     console.error('[Seeder] Error seeding settings:', error.message);
   }
 };
+
+export const seedLaboData = async (): Promise<void> => {
+  try {
+    // 1. Seed Lab Suppliers if missing
+    const labSuppliers = [
+      {
+        name: 'Xưởng Labo Nha Khoa Quốc Tế DentArt',
+        phone: '0908 123 456',
+        email: 'contact@dentartlab.vn',
+        address: '124 Nguyễn Đình Chiểu, P. Đa Kao, Quận 1, TP.HCM',
+        contactPerson: 'KTV Trưởng Trần Quang Vinh',
+        isActive: true,
+      },
+      {
+        name: 'Trung Tâm Phục Hình Kỹ Thuật Số Cercon Lab',
+        phone: '0912 345 678',
+        email: 'order@cerconlab.com.vn',
+        address: '45 Lê Văn Sỹ, P.13, Quận 3, TP.HCM',
+        contactPerson: 'KTV Hoàng Minh Tuấn',
+        isActive: true,
+      },
+      {
+        name: 'Labo Phục Hình Implant & Hàm Khung Việt Đức',
+        phone: '0988 765 432',
+        email: 'support@vietduclab.com',
+        address: '88 Giải Phóng, Đống Đa, Hà Nội',
+        contactPerson: 'KTV Lê Văn Hùng',
+        isActive: true,
+      },
+    ];
+
+    const supplierMap = new Map<string, number>();
+    for (const sup of labSuppliers) {
+      let existing = await Supplier.findOne({ where: { name: sup.name } });
+      if (!existing) {
+        existing = await Supplier.create(sup);
+        console.log(`[Seeder] Lab Supplier '${sup.name}' created.`);
+      }
+      supplierMap.set(sup.name, existing.id);
+    }
+
+    // 2. Check if Lab Orders exist
+    const orderCount = await LabOrder.count();
+    if (orderCount === 0) {
+      const patientProfile = await PatientProfile.findOne();
+      const dentist = await User.findOne({ where: { role: UserRole.DENTIST } }) || await User.findOne({ where: { role: UserRole.ADMIN } });
+      const sup1Id = supplierMap.get('Xưởng Labo Nha Khoa Quốc Tế DentArt') || 1;
+      const sup2Id = supplierMap.get('Trung Tâm Phục Hình Kỹ Thuật Số Cercon Lab') || 2;
+      const sup3Id = supplierMap.get('Labo Phục Hình Implant & Hàm Khung Việt Đức') || 3;
+
+      if (patientProfile && dentist) {
+        const order1 = await LabOrder.create({
+          code: 'LAB-20260719-001',
+          patientProfileId: patientProfile.id,
+          dentistId: dentist.id,
+          supplierId: sup1Id,
+          restorationCategory: 'veneer_inlay',
+          restorationTypeName: 'Mặt dán sứ Veneer Emax Press',
+          materialName: 'Emax Press Multi',
+          teethNumbers: [11, 12, 21, 22],
+          totalUnits: 4,
+          shadeSystem: 'bleach',
+          shadeMain: 'BL2',
+          shadeCervical: 'BL3',
+          shadeBody: 'BL2',
+          shadeIncisal: 'Trong mờ men răng tự nhiên',
+          translucencyLevel: 'high',
+          characterizationNotes: 'Làm rìa cắn hơi bo tròn nữ tính, vân men nhẹ tự nhiên, không làm quá phẳng.',
+          marginDesign: 'shoulder',
+          occlusionType: 'normal',
+          proximalContact: 'point_normal',
+          sentDate: '2026-07-15',
+          deliveryDueDate: '2026-07-20',
+          actualDeliveryDate: '2026-07-19',
+          patientAppointmentDate: '2026-07-21 09:00',
+          status: 'delivered_to_clinic',
+          unitCostPrice: 1200000,
+          totalCostPrice: 4800000,
+          isPaidToLab: false,
+          clinicalNotes: 'Khách yêu cầu nụ cười sáng nhưng tự nhiên khi quay phim.',
+        });
+
+        await LabOrderHistory.create({
+          labOrderId: order1.id,
+          previousStatus: 'draft',
+          newStatus: 'delivered_to_clinic',
+          performedBy: 'Hệ thống',
+          actionNotes: 'Đã giao về phòng khám sẵn sàng lắp',
+        });
+
+        const order2 = await LabOrder.create({
+          code: 'LAB-20260718-002',
+          patientProfileId: patientProfile.id,
+          dentistId: dentist.id,
+          supplierId: sup2Id,
+          restorationCategory: 'fixed_crown_bridge',
+          restorationTypeName: 'Cầu răng sứ toàn phần Zirconia',
+          materialName: 'Cercon HT Zirconia',
+          teethNumbers: [45, 46, 47],
+          totalUnits: 3,
+          shadeSystem: 'vita_classical',
+          shadeMain: 'A3',
+          shadeCervical: 'A3.5',
+          shadeBody: 'A3',
+          shadeIncisal: 'A2',
+          translucencyLevel: 'medium',
+          characterizationNotes: 'Mặt nhai rãnh hố hơi nhuộm màu nhẹ cho giống răng đối diện.',
+          marginDesign: 'chamfer',
+          occlusionType: 'relieved_light',
+          proximalContact: 'broad_flat',
+          ponticDesign: 'modified_ridge_lap',
+          sentDate: '2026-07-16',
+          deliveryDueDate: '2026-07-20',
+          patientAppointmentDate: '2026-07-20 15:30',
+          status: 'in_fabrication',
+          unitCostPrice: 900000,
+          totalCostPrice: 2700000,
+          isPaidToLab: false,
+          clinicalNotes: 'Nhịp R46 nướu đã lành thương 2 tháng, mài bờ vai xuôi nhẹ.',
+        });
+
+        await LabOrderHistory.create({
+          labOrderId: order2.id,
+          previousStatus: 'draft',
+          newStatus: 'in_fabrication',
+          performedBy: 'Hệ thống',
+          actionNotes: 'Xưởng đang đúc sườn và nung sứ',
+        });
+
+        const order3 = await LabOrder.create({
+          code: 'LAB-20260714-003',
+          patientProfileId: patientProfile.id,
+          dentistId: dentist.id,
+          supplierId: sup3Id,
+          restorationCategory: 'implant_prosthetics',
+          restorationTypeName: 'Mão sứ bắt vít trên Implant',
+          materialName: 'Custom Abutment + Mão Lava Plus',
+          teethNumbers: [36],
+          totalUnits: 1,
+          shadeSystem: 'vita_3d_master',
+          shadeMain: '3M2',
+          translucencyLevel: 'medium',
+          marginDesign: 'chamfer',
+          occlusionType: 'normal',
+          proximalContact: 'point_normal',
+          sentDate: '2026-07-12',
+          deliveryDueDate: '2026-07-17',
+          actualDeliveryDate: '2026-07-17',
+          patientAppointmentDate: '2026-07-18 10:00',
+          status: 'cemented_done',
+          unitCostPrice: 2500000,
+          totalCostPrice: 2500000,
+          isPaidToLab: true,
+          dentistRating: 5,
+          dentistFeedback: 'Khít sát hoàn hảo, khớp cắn không cần mài chỉnh gì thêm.',
+        });
+
+        await LabWarrantyCard.create({
+          cardCode: 'WAR-20260714-36',
+          labOrderId: order3.id,
+          patientProfileId: patientProfile.id,
+          teethList: 'R36',
+          prostheticName: 'Mão sứ bắt vít trên Implant (Lava Plus 3M)',
+          materialBrand: '3M ESPE (USA)',
+          warrantyYears: 15,
+          startDate: '2026-07-18',
+          endDate: '2041-07-18',
+          warrantyStatus: 'active',
+          termsAndConditions: 'Bảo hành nứt, vỡ, mẻ sứ hoặc lỏng vít Abutment trong điều kiện ăn nhai bình thường. Tái khám định kỳ 6 tháng/lần.',
+        });
+
+        console.log('[Seeder] Default Lab orders & warranties seeded successfully.');
+      }
+    }
+  } catch (error: any) {
+    console.error('[Seeder] Error seeding labo data:', error.message);
+  }
+};
+
 
