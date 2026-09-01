@@ -77,3 +77,35 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
     next(error);
   }
 };
+
+export const updateProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) {
+      return next(new AppError(Messages.AUTH.UNAUTHORIZED, HttpStatus.UNAUTHORIZED));
+    }
+    const { user, permissions } = await authService.updateUserProfile(req.user.id, req.body);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Cập nhật hồ sơ cá nhân thành công',
+      data: { user: new UserResponseDto(user, permissions) },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changePassword = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user) {
+      return next(new AppError(Messages.AUTH.UNAUTHORIZED, HttpStatus.UNAUTHORIZED));
+    }
+    await authService.changeUserPassword(req.user.id, req.body);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Đổi mật khẩu thành công',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

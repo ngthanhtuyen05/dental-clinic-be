@@ -47,3 +47,26 @@ export const registerUserSchema = z.object({
   }),
 });
 
+export const updateProfileSchema = z.object({
+  body: z.object({
+    fullName: z.string().min(2, 'Họ và tên tối thiểu 2 ký tự').optional(),
+    phone: z.string().optional().nullable(),
+    title: z.string().optional().nullable(),
+    academicTitle: z.string().optional().nullable(),
+    notifyAppointment: z.boolean().optional(),
+  }),
+});
+
+export const changePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string({ message: 'Vui lòng nhập mật khẩu hiện tại' }).min(1, 'Vui lòng nhập mật khẩu hiện tại'),
+    newPassword: z.string({ message: 'Vui lòng nhập mật khẩu mới' }).min(6, 'Mật khẩu mới phải có ít nhất 6 ký tự'),
+    confirmPassword: z.string().optional(),
+  }).refine((data) => !data.confirmPassword || data.newPassword === data.confirmPassword, {
+    message: 'Mật khẩu xác nhận không khớp',
+    path: ['confirmPassword'],
+  }),
+});
+
+
+

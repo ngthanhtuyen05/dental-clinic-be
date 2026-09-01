@@ -17,6 +17,7 @@ import PrescriptionItem from './prescriptionItemModel.js';
 import DosageTemplate from './dosageTemplateModel.js';
 import UsageGuide from './usageGuideModel.js';
 import Invoice from './invoiceModel.js';
+import Setting from './settingModel.js';
 
 // ==================== ASSOCIATIONS ====================
 
@@ -120,6 +121,10 @@ Invoice.belongsTo(Prescription, { foreignKey: 'prescriptionId', as: 'prescriptio
 User.hasMany(Invoice, { foreignKey: 'createdBy', as: 'createdInvoices' });
 Invoice.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 
+// Setting Associations
+User.hasMany(Setting, { foreignKey: 'updatedBy', as: 'updatedSettings' });
+Setting.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
 // ==================== EXPORTS ====================
 export {
   User,
@@ -141,5 +146,6 @@ export {
   DosageTemplate,
   UsageGuide,
   Invoice,
+  Setting,
 };
 

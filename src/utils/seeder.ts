@@ -2,6 +2,7 @@ import User from '../models/userModel.js';
 import Role from '../models/roleModel.js';
 import PatientProfile from '../models/patientProfileModel.js';
 import Specialty from '../models/specialtyModel.js';
+import Setting from '../models/settingModel.js';
 import { UserRole } from '../constants/enums.js';
 import env from '../config/env.js';
 import { hashPassword } from './password.js';
@@ -250,7 +251,77 @@ export const seedAdmin = async (): Promise<void> => {
       await Specialty.bulkCreate(defaultSpecialties);
       console.log('[Seeder] Default specialties seeded successfully.');
     }
+
+    // Auto-seed Default Settings if empty
+    await seedSettings();
   } catch (error: any) {
     console.error('[Seeder] Error seeding accounts:', error.message);
   }
 };
+
+export const seedSettings = async (): Promise<void> => {
+  try {
+    const defaultSettings = [
+      {
+        key: 'clinic',
+        description: 'Thông tin phòng khám, thương hiệu & thời gian vận hành',
+        value: {
+          name: 'Nha Khoa Quốc Tế Smilevia',
+          slogan: 'Nụ cười rạng rỡ - Tự tin tỏa sáng',
+          taxCode: '0316888999',
+          phone: '1900 6868 - 028 7302 6868',
+          email: 'contact@smilevia.vn',
+          website: 'https://smilevia.vn',
+          address: '128 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
+          branch2: '45 Lê Duẩn, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+          openTime: '08:00',
+          closeTime: '20:00',
+          breakStart: '12:00',
+          breakEnd: '13:30',
+          autoConfirm: true,
+          allowOnlineBooking: true,
+        },
+      },
+      {
+        key: 'payment',
+        description: 'Cấu hình cổng thanh toán VietQR & phương thức thanh toán quầy',
+        value: {
+          bankCode: 'VCB',
+          accountNo: '1028889999',
+          accountName: 'NHA KHOA QUOC TE SMILEVIA',
+          qrSyntax: 'SMILEVIA {INVOICE_CODE}',
+          enableVietQR: true,
+          enableMomo: true,
+          enablePos: true,
+        },
+      },
+      {
+        key: 'print',
+        description: 'Cấu hình mẫu in hóa đơn & phiếu thu khám chữa bệnh',
+        value: {
+          paperSize: 'k80',
+          receiptTitle: 'PHIẾU THU TIỀN NHA KHOA',
+          footerNotes: 'Cảm ơn Quý khách đã tin tưởng và sử dụng dịch vụ tại Smilevia!\nQuý khách vui lòng giữ hóa đơn để tái khám và đối soát bảo hành.',
+          showToothNumber: true,
+          showDoctorSign: true,
+          autoPrintAfterPayment: false,
+        },
+      },
+    ];
+
+    for (const item of defaultSettings) {
+      const existing = await Setting.findByPk(item.key);
+      if (!existing) {
+        await Setting.create({
+          key: item.key,
+          value: item.value,
+          description: item.description,
+        });
+        console.log(`[Seeder] Default setting '${item.key}' seeded successfully.`);
+      }
+    }
+  } catch (error: any) {
+    console.error('[Seeder] Error seeding settings:', error.message);
+  }
+};
+
