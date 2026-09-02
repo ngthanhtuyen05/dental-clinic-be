@@ -298,7 +298,7 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
   return await appointmentRepository.findById(id);
 };
 
-export const updateAppointmentStatus = async (id: number, status: AppointmentStatus, cancelReason?: string) => {
+export const updateAppointmentStatus = async (id: number, status: AppointmentStatus, cancelReason?: string, notes?: string) => {
   const appt = await appointmentRepository.findById(id);
   if (!appt) {
     throw new AppError('Không tìm thấy lịch hẹn.', 404);
@@ -339,6 +339,9 @@ export const updateAppointmentStatus = async (id: number, status: AppointmentSta
     updateFields.startedAt = now;
   } else if (status === AppointmentStatus.COMPLETED) {
     updateFields.completedAt = now;
+    if (notes) {
+      updateFields.notes = notes;
+    }
   } else if (status === AppointmentStatus.CANCELLED) {
     updateFields.cancelledAt = now;
     updateFields.cancelReason = cancelReason || 'Không có lý do hủy cụ thể';

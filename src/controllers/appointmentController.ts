@@ -99,9 +99,9 @@ export const updateAppointment = async (req: Request, res: Response, next: NextF
 export const updateAppointmentStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
-    const { status, cancelReason } = req.body;
+    const { status, cancelReason, notes } = req.body;
     
-    const appointment = await appointmentService.updateAppointmentStatus(id, status, cancelReason);
+    const appointment = await appointmentService.updateAppointmentStatus(id, status, cancelReason, notes);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: new AppointmentResponseDto(appointment),
