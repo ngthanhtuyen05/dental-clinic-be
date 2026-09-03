@@ -23,6 +23,7 @@ router.get('/dosage-templates', checkPermission('prescriptions.view'), getDosage
 router.post('/dosage-templates', checkPermission('prescriptions.templates'), createDosageTemplate);
 router.get('/dosage-templates/:id', checkPermission('prescriptions.view'), getDosageTemplate);
 router.put('/dosage-templates/:id', checkPermission('prescriptions.templates'), updateDosageTemplate);
+router.patch('/dosage-templates/:id', checkPermission('prescriptions.templates'), updateDosageTemplate);
 router.delete('/dosage-templates/:id', checkPermission('prescriptions.templates'), deleteDosageTemplate);
 
 router.get('/usage-guides', checkPermission('prescriptions.view'), getUsageGuides);

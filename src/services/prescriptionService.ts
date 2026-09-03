@@ -262,8 +262,11 @@ export const updatePrescriptionStatus = async (id: number, status: PrescriptionS
   return getPrescriptionById(id);
 };
 
-export const getDosageTemplates = async (keyword?: string) => {
-  const where: any = { isActive: true };
+export const getDosageTemplates = async (keyword?: string, activeOnly?: boolean) => {
+  const where: any = {};
+  if (activeOnly) {
+    where.isActive = true;
+  }
   if (keyword && keyword.trim()) {
     const kw = `%${keyword.trim()}%`;
     where[Op.or] = [
@@ -297,7 +300,11 @@ export const updateDosageTemplate = async (id: number, data: any) => {
 
 export const deleteDosageTemplate = async (id: number) => {
   const template = await getDosageTemplateById(id);
-  await template.destroy();
+  try {
+    await template.destroy();
+  } catch {
+    await template.update({ isActive: false });
+  }
   return { message: 'Đã xóa mẫu liều dùng thành công' };
 };
 

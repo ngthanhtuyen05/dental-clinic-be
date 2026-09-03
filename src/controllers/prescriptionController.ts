@@ -70,7 +70,8 @@ export const updatePrescriptionStatus = async (req: Request, res: Response, next
 export const getDosageTemplates = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const keyword = (req.query.keyword as string) || undefined;
-    const templates = await prescriptionService.getDosageTemplates(keyword);
+    const activeOnly = req.query.activeOnly === 'true';
+    const templates = await prescriptionService.getDosageTemplates(keyword, activeOnly);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: templates,
