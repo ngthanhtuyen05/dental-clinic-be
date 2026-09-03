@@ -92,6 +92,45 @@ export const createDosageTemplate = async (req: Request, res: Response, next: Ne
   }
 };
 
+export const getDosageTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const template = await prescriptionService.getDosageTemplateById(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: template,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDosageTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const template = await prescriptionService.updateDosageTemplate(id, req.body);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: template,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteDosageTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const result = await prescriptionService.deleteDosageTemplate(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getUsageGuides = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const keyword = (req.query.keyword as string) || undefined;

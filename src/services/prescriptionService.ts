@@ -281,6 +281,26 @@ export const createDosageTemplate = async (data: any) => {
   return DosageTemplate.create(data);
 };
 
+export const getDosageTemplateById = async (id: number) => {
+  const template = await DosageTemplate.findByPk(id);
+  if (!template) {
+    throw new AppError('Không tìm thấy mẫu liều dùng', HttpStatus.NOT_FOUND);
+  }
+  return template;
+};
+
+export const updateDosageTemplate = async (id: number, data: any) => {
+  const template = await getDosageTemplateById(id);
+  await template.update(data);
+  return template;
+};
+
+export const deleteDosageTemplate = async (id: number) => {
+  const template = await getDosageTemplateById(id);
+  await template.destroy();
+  return { message: 'Đã xóa mẫu liều dùng thành công' };
+};
+
 export const getUsageGuides = async (keyword?: string) => {
   const where: any = { isActive: true };
   if (keyword && keyword.trim()) {

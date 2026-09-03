@@ -5,7 +5,10 @@ import {
   createPrescription,
   updatePrescriptionStatus,
   getDosageTemplates,
+  getDosageTemplate,
   createDosageTemplate,
+  updateDosageTemplate,
+  deleteDosageTemplate,
   getUsageGuides,
   createUsageGuide,
 } from '../controllers/prescriptionController.js';
@@ -18,6 +21,9 @@ router.use(protect);
 
 router.get('/dosage-templates', checkPermission('prescriptions.view'), getDosageTemplates);
 router.post('/dosage-templates', checkPermission('prescriptions.templates'), createDosageTemplate);
+router.get('/dosage-templates/:id', checkPermission('prescriptions.view'), getDosageTemplate);
+router.put('/dosage-templates/:id', checkPermission('prescriptions.templates'), updateDosageTemplate);
+router.delete('/dosage-templates/:id', checkPermission('prescriptions.templates'), deleteDosageTemplate);
 
 router.get('/usage-guides', checkPermission('prescriptions.view'), getUsageGuides);
 router.post('/usage-guides', checkPermission('prescriptions.templates'), createUsageGuide);
