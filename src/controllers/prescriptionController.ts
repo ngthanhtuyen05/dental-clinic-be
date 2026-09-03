@@ -135,7 +135,8 @@ export const deleteDosageTemplate = async (req: Request, res: Response, next: Ne
 export const getUsageGuides = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const keyword = (req.query.keyword as string) || undefined;
-    const guides = await prescriptionService.getUsageGuides(keyword);
+    const activeOnly = req.query.activeOnly === 'true';
+    const guides = await prescriptionService.getUsageGuides(keyword, activeOnly);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: guides,
@@ -151,6 +152,45 @@ export const createUsageGuide = async (req: Request, res: Response, next: NextFu
     res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: guide,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUsageGuide = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const guide = await prescriptionService.getUsageGuideById(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: guide,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUsageGuide = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const guide = await prescriptionService.updateUsageGuide(id, req.body);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: guide,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteUsageGuide = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const result = await prescriptionService.deleteUsageGuide(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: result,
     });
   } catch (error) {
     next(error);

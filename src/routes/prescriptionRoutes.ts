@@ -10,7 +10,10 @@ import {
   updateDosageTemplate,
   deleteDosageTemplate,
   getUsageGuides,
+  getUsageGuide,
   createUsageGuide,
+  updateUsageGuide,
+  deleteUsageGuide,
 } from '../controllers/prescriptionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
@@ -28,6 +31,10 @@ router.delete('/dosage-templates/:id', checkPermission('prescriptions.templates'
 
 router.get('/usage-guides', checkPermission('prescriptions.view'), getUsageGuides);
 router.post('/usage-guides', checkPermission('prescriptions.templates'), createUsageGuide);
+router.get('/usage-guides/:id', checkPermission('prescriptions.view'), getUsageGuide);
+router.put('/usage-guides/:id', checkPermission('prescriptions.templates'), updateUsageGuide);
+router.patch('/usage-guides/:id', checkPermission('prescriptions.templates'), updateUsageGuide);
+router.delete('/usage-guides/:id', checkPermission('prescriptions.templates'), deleteUsageGuide);
 
 router.route('/')
   .get(checkPermission('prescriptions.view'), getPrescriptions)
