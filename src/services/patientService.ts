@@ -1,9 +1,12 @@
+import { Op } from 'sequelize';
 import { patientRepository } from '../repositories/patientRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { patientProfileRepository } from '../repositories/patientProfileRepository.js';
+import { PatientProfile } from '../models/index.js';
 import { hashPassword } from '../utils/password.js';
 import sequelize from '../config/db.js';
 import AppError from '../utils/AppError.js';
+import HttpStatus from '../constants/httpStatus.js';
 import { UserRole, PatientStatus, Gender } from '../constants/enums.js';
 import type { PatientQueryDto, CreatePatientRequestDto, UpdatePatientRequestDto, PaginatedPatientsDto } from '../dtos/patientDto.js';
 
@@ -239,3 +242,29 @@ export const importPatients = async (patients: Array<{
 
   return { importedCount, skippedCount, total: patients.length };
 };
+
+export const resolvePatientProfileId = async (paramId: string | number): Promise<number> => {
+  if (!paramId) {
+    throw new AppError('Mã định danh bệnh nhân không hợp lệ.', HttpStatus.BAD_REQUEST);
+  }
+
+  const clean = typeof paramId === 'string' ? paramId.replace(/^BN0*/i, '') : paramId;
+  const parsedId = parseInt(String(clean), 10);
+
+  if (isNaN(parsedId) || parsedId <= 0) {
+    throw new AppError('Mã bệnh nhân không hợp lệ.', HttpStatus.BAD_REQUEST);
+  }
+
+  const profile = await PatientProfile.findOne({
+    where: {
+      [Op.or]: [{ id: parsedId }, { userId: parsedId }],
+    },
+  });
+
+  if (!profile) {
+    throw new AppError('Không tìm thấy hồ sơ bệnh nhân.', HttpStatus.NOT_FOUND);
+  }
+
+  return profile.id;
+};
+

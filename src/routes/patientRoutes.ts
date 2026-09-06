@@ -1,5 +1,15 @@
 import express from 'express';
-import { getPatients, getPatient, createPatient, updatePatient, deletePatient, togglePatientStatus, importPatients } from '../controllers/patientController.js';
+import {
+  getPatients,
+  getPatient,
+  createPatient,
+  updatePatient,
+  deletePatient,
+  togglePatientStatus,
+  importPatients,
+  getPatientPrescriptions,
+  createPatientPrescription,
+} from '../controllers/patientController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
 import { validate } from '../middlewares/validate.js';
@@ -14,6 +24,10 @@ router.post('/import', checkPermission('patients.create'), importPatients);
 router.route('/')
   .get(checkPermission('patients.view'), getPatients)
   .post(checkPermission('patients.create'), validate(createPatientSchema), createPatient);
+
+router.route('/:id/prescriptions')
+  .get(checkPermission('prescriptions.view'), getPatientPrescriptions)
+  .post(checkPermission('prescriptions.create'), createPatientPrescription);
 
 router.route('/:id')
   .get(checkPermission('patients.view'), getPatient)

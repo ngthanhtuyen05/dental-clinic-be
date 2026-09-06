@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as patientService from '../services/patientService.js';
+import * as prescriptionService from '../services/prescriptionService.js';
 import { PatientResponseDto } from '../dtos/patientDto.js';
 import HttpStatus from '../constants/httpStatus.js';
 
@@ -113,3 +114,55 @@ export const importPatients = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+export const getPatientPrescriptions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const profileId = await patientService.resolvePatientProfileId(req.params.id as string);
+
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 20;
+    const status = (req.query.status as string) || undefined;
+    const keyword = (req.query.keyword as string) || undefined;
+    const startDate = (req.query.startDate as string) || undefined;
+    const endDate = (req.query.endDate as string) || undefined;
+
+    const result = await prescriptionService.getPrescriptions({
+      page,
+      limit,
+      keyword,
+      status,
+      startDate,
+      endDate,
+      patientProfileId: profileId,
+    });
+
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: result.data,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createPatientPrescription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const profileId = await patientService.resolvePatientProfileId(req.params.id as string);
+    const dentistId = (req as any).user?.id || req.body.dentistId || 1;
+
+    const prescription = await prescriptionService.createPrescription({
+      ...req.body,
+      patientProfileId: profileId,
+      dentistId,
+    });
+
+    res.status(HttpStatus.CREATED).json({
+      status: 'success',
+      data: prescription,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
