@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import * as patientService from '../services/patientService.js';
 import * as prescriptionService from '../services/prescriptionService.js';
+import * as treatmentHistoryService from '../services/treatmentHistoryService.js';
+import { TreatmentHistoryResponseDto } from '../dtos/treatmentHistoryDto.js';
+import User from '../models/userModel.js';
+import { UserRole } from '../constants/enums.js';
 import { PatientResponseDto } from '../dtos/patientDto.js';
+import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
 
 export const getPatients = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -160,6 +165,38 @@ export const createPatientPrescription = async (req: Request, res: Response, nex
     res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: prescription,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPatientVisits = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const profileId = await patientService.resolvePatientProfileId(req.params.id as string);
+    const list = await treatmentHistoryService.getTreatmentHistoriesByProfileId(profileId);
+
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      results: list.length,
+      data: TreatmentHistoryResponseDto.toList(list),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPatientVisitDetail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const visitId = parseInt(req.params.visitId as string, 10);
+    const record = await treatmentHistoryService.getTreatmentHistoryById(visitId);
+    if (!record) {
+      throw new AppError('Không tìm thấy chi tiết lần khám', HttpStatus.NOT_FOUND);
+    }
+
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: new TreatmentHistoryResponseDto(record),
     });
   } catch (error) {
     next(error);

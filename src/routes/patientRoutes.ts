@@ -9,6 +9,8 @@ import {
   importPatients,
   getPatientPrescriptions,
   createPatientPrescription,
+  getPatientVisits,
+  getPatientVisitDetail,
 } from '../controllers/patientController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
@@ -28,6 +30,12 @@ router.route('/')
 router.route('/:id/prescriptions')
   .get(checkPermission('prescriptions.view'), getPatientPrescriptions)
   .post(checkPermission('prescriptions.create'), createPatientPrescription);
+
+router.route('/:id/visits')
+  .get(checkPermission('patients.view'), getPatientVisits);
+
+router.route('/:id/visits/:visitId')
+  .get(checkPermission('patients.view'), getPatientVisitDetail);
 
 router.route('/:id')
   .get(checkPermission('patients.view'), getPatient)

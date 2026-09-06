@@ -20,8 +20,8 @@ export const createTreatmentHistory = async (dto: CreateTreatmentHistoryDto): Pr
   if (!dentist) {
     throw new AppError('Không tìm thấy nha sĩ được chỉ định.', 404);
   }
-  if (dentist.role !== UserRole.DENTIST) {
-    throw new AppError('Người thực hiện điều trị phải là nha sĩ.', 400);
+  if (dentist.role !== UserRole.DENTIST && dentist.role !== UserRole.ADMIN) {
+    throw new AppError('Người thực hiện điều trị phải là nha sĩ hoặc quản trị viên.', 400);
   }
 
   return await treatmentHistoryRepository.create({
