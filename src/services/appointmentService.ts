@@ -114,6 +114,15 @@ export const createNewAppointment = async (
     }
   }
 
+  // Nếu là người dùng vai trò bệnh nhân đã đăng ký, bắt buộc phải có hồ sơ bệnh án
+  if (patient && patient.role === UserRole.PATIENT) {
+    const PatientProfileModel = (await import('../models/patientProfileModel.js')).default;
+    const existingProfile = await PatientProfileModel.findOne({ where: { userId: patient.id } });
+    if (!existingProfile) {
+      throw new AppError('Vui lòng hoàn tất hồ sơ bệnh nhân trước khi đặt lịch hẹn.', 400);
+    }
+  }
+
   // Nếu vẫn chưa có bệnh nhân (khách vãng lai lần đầu đặt lịch) -> Tự động tạo hồ sơ bệnh nhân
   if (!patient) {
     const defaultPassword = await hashPassword('Dental@123');
