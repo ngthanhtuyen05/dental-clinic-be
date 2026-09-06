@@ -1,9 +1,11 @@
 // Import env config ĐẦU TIÊN — validate env variables trước khi làm bất cứ gì
 import env from './config/env.js';
 
+import http from 'http';
 import app from './app.js';
 import sequelize, { connectDB } from './config/db.js';
 import { seedAdmin } from './utils/seeder.js';
+import { initSocket } from './services/socketService.js';
 
 // Import model registry — đăng ký tất cả models + associations tập trung
 import './models/index.js';
@@ -81,8 +83,11 @@ const startServer = async (): Promise<void> => {
     // Seed tài khoản admin mặc định
     await seedAdmin();
 
-    // 3. Khởi chạy server lắng nghe
-    app.listen(env.PORT, () => {
+    // 3. Khởi chạy HTTP server & Socket.IO
+    const httpServer = http.createServer(app);
+    initSocket(httpServer);
+
+    httpServer.listen(env.PORT, () => {
       console.log(`[Server] running on http://localhost:${env.PORT}`);
       console.log(`[Server] Environment: ${env.NODE_ENV}`);
     });

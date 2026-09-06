@@ -12,6 +12,8 @@ import AppError from '../utils/AppError.js';
 import sequelize from '../config/db.js';
 import { Op } from 'sequelize';
 import User from '../models/userModel.js';
+import { Notification } from '../models/index.js';
+import { emitToStaff } from './socketService.js';
 import { hashPassword } from '../utils/password.js';
 
 // Helper: Cộng giờ
@@ -225,7 +227,58 @@ export const createNewAppointment = async (
   } as any);
 
   // Re-fetch đầy đủ liên kết để trả về
-  return await appointmentRepository.findById(appt.id);
+  const fullAppt = await appointmentRepository.findById(appt.id);
+
+  // Tạo bản ghi thông báo và phát sự kiện Socket.IO thời gian thực tới CMS
+  try {
+    const patientObj = (fullAppt as any)?.patient;
+    const dentistObj = (fullAppt as any)?.dentist;
+    const serviceObj = (fullAppt as any)?.service || service;
+
+    const patientDisplayName = patientObj?.fullName || fullName || patient?.fullName || 'Bệnh nhân';
+    const patientPhone = patientObj?.phone || phone || patient?.phone || '';
+    const serviceTitle = serviceObj?.name || 'Dịch vụ nha khoa';
+    const doctorTitle = dentistObj?.fullName ? `Bác sĩ ${dentistObj.fullName}` : 'Bác sĩ phụ trách';
+
+    const notifTitle = `Lịch hẹn mới: ${patientDisplayName}`;
+    const notifDesc = `${patientDisplayName}${patientPhone ? ` (${patientPhone})` : ''} vừa đặt lịch hẹn ${serviceTitle} vào lúc ${startTime} ngày ${appointmentDate} với ${doctorTitle}.`;
+
+    const notificationRecord = await Notification.create({
+      userId: null,
+      type: 'appointment',
+      title: notifTitle,
+      description: notifDesc,
+      targetUrl: `/appointments?code=${code}`,
+      data: JSON.stringify({
+        appointmentId: appt.id,
+        appointmentCode: code,
+        patientName: patientDisplayName,
+        patientPhone,
+        serviceName: serviceTitle,
+        doctorName: doctorTitle,
+        appointmentDate,
+        startTime,
+        endTime,
+      }),
+      isRead: false,
+    });
+
+    emitToStaff('new_appointment', {
+      notification: notificationRecord,
+      appointment: fullAppt,
+      patientName: patientDisplayName,
+      patientPhone,
+      serviceName: serviceTitle,
+      doctorName: doctorTitle,
+      appointmentDate,
+      startTime,
+      code,
+    });
+  } catch (notifError) {
+    console.error('[Notification] Error creating or broadcasting notification:', notifError);
+  }
+
+  return fullAppt;
 };
 
 export const updateAppointment = async (id: number, data: UpdateAppointmentRequestDto) => {

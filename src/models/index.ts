@@ -21,6 +21,7 @@ import Setting from './settingModel.js';
 import LabOrder from './labOrderModel.js';
 import LabOrderHistory from './labOrderHistoryModel.js';
 import LabWarrantyCard from './labWarrantyCardModel.js';
+import Notification from './notificationModel.js';
 
 // ==================== ASSOCIATIONS ====================
 
@@ -155,6 +156,10 @@ LabWarrantyCard.belongsTo(LabOrder, { foreignKey: 'labOrderId', as: 'labOrder' }
 PatientProfile.hasMany(LabWarrantyCard, { foreignKey: 'patientProfileId', as: 'warrantyCards' });
 LabWarrantyCard.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as: 'patientProfile' });
 
+// User ↔ Notification (1:N)
+User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 // ==================== EXPORTS ====================
 export {
   User,
@@ -180,5 +185,6 @@ export {
   LabOrder,
   LabOrderHistory,
   LabWarrantyCard,
+  Notification,
 };
 
