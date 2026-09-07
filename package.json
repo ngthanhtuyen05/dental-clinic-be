@@ -7,6 +7,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "migrate": "tsx src/database/runMigrations.ts",
+    "migrate:undo": "tsx src/database/runMigrations.ts --undo",
     "seed": "node dist/runSeeder.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -1,221 +1,132 @@
-import { Request, Response } from 'express';
-import { Invoice, PatientProfile, Appointment, TreatmentHistory, Prescription, User } from '../models/index.js';
-import { InvoiceStatus, PaymentMethod } from '../constants/enums.js';
-import { createMoMoPaymentUrl, verifyMoMoSignature } from '../services/momoService.js';
+import { Request, Response, NextFunction } from 'express';
+import * as invoiceService from '../services/invoiceService.js';
+import HttpStatus from '../constants/httpStatus.js';
+import env from '../config/env.js';
+import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 
-export const createInvoice = async (req: Request, res: Response): Promise<void> => {
+export const createInvoice = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const {
-      patientProfileId,
-      appointmentId,
-      treatmentHistoryId,
-      prescriptionId,
-      totalAmount,
-      discountAmount,
-      notes,
-    } = req.body;
+    const creatorId = req.user?.id || null;
+    const invoice = await invoiceService.createInvoice(req.body, creatorId);
 
-    const creatorId = (req as any).user?.id || null;
-
-    if (!patientProfileId) {
-      res.status(400).json({ status: 'error', message: 'patientProfileId is required' });
-      return;
-    }
-
-    let calculatedAmount = Number(totalAmount) || 0;
-    const discount = Number(discountAmount) || 0;
-
-    // Auto calculate from Treatment History if totalAmount not supplied
-    if (!calculatedAmount && treatmentHistoryId) {
-      const treatment = await TreatmentHistory.findByPk(Number(treatmentHistoryId));
-      if (treatment) {
-        calculatedAmount = Number(treatment.cost) || 0;
-      }
-    }
-
-    const code = `INV-${Date.now()}`;
-
-    const invoice = await Invoice.create({
-      code,
-      patientProfileId: Number(patientProfileId),
-      appointmentId: appointmentId ? Number(appointmentId) : null,
-      treatmentHistoryId: treatmentHistoryId ? Number(treatmentHistoryId) : null,
-      prescriptionId: prescriptionId ? Number(prescriptionId) : null,
-      totalAmount: calculatedAmount,
-      discountAmount: discount,
-      status: InvoiceStatus.UNPAID,
-      notes: notes || null,
-      createdBy: creatorId,
-    });
-
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       status: 'success',
       data: invoice,
     });
-  } catch (error: any) {
-    console.error('Error creating invoice:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getAllInvoices = async (req: Request, res: Response): Promise<void> => {
+export const getAllInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { patientProfileId, status } = req.query;
-
-    const where: any = {};
-    if (patientProfileId) where.patientProfileId = Number(patientProfileId);
-    if (status) where.status = status;
-
-    const invoices = await Invoice.findAll({
-      where,
-      include: [
-        { model: PatientProfile, as: 'patientProfile', include: [{ model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'phone'] }] },
-        { model: Appointment, as: 'appointment' },
-        { model: TreatmentHistory, as: 'treatmentHistory' },
-        { model: Prescription, as: 'prescription' },
-      ],
-      order: [['createdAt', 'DESC']],
+    const invoices = await invoiceService.getAllInvoices({
+      patientProfileId: patientProfileId ? Number(patientProfileId) : undefined,
+      status: status as string,
     });
 
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: invoices,
     });
-  } catch (error: any) {
-    console.error('Error fetching invoices:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getInvoiceById = async (req: Request, res: Response): Promise<void> => {
+export const getInvoiceById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const invoice = await invoiceService.getInvoiceById(id);
 
-    const invoice = await Invoice.findByPk(id, {
-      include: [
-        { model: PatientProfile, as: 'patientProfile', include: [{ model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'phone'] }] },
-        { model: Appointment, as: 'appointment' },
-        { model: TreatmentHistory, as: 'treatmentHistory' },
-        { model: Prescription, as: 'prescription' },
-        { model: User, as: 'creator', attributes: ['id', 'fullName', 'email'] },
-      ],
-    });
-
-    if (!invoice) {
-      res.status(404).json({ status: 'error', message: 'Invoice not found' });
-      return;
-    }
-
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
       data: invoice,
     });
-  } catch (error: any) {
-    console.error('Error fetching invoice details:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
+  } catch (error) {
+    next(error);
   }
 };
 
-export const payInvoice = async (req: Request, res: Response): Promise<void> => {
+export const payInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
     const { paymentMethod } = req.body;
+    const invoice = await invoiceService.payInvoice(id, paymentMethod);
 
-    if (!paymentMethod || ![PaymentMethod.CASH, PaymentMethod.BANK_TRANSFER].includes(paymentMethod)) {
-      res.status(400).json({ status: 'error', message: 'Valid paymentMethod (cash, bank_transfer) is required' });
-      return;
-    }
-
-    const invoice = await Invoice.findByPk(id);
-    if (!invoice) {
-      res.status(404).json({ status: 'error', message: 'Invoice not found' });
-      return;
-    }
-
-    if (invoice.status === InvoiceStatus.PAID) {
-      res.status(400).json({ status: 'error', message: 'Invoice is already paid' });
-      return;
-    }
-
-    invoice.status = InvoiceStatus.PAID;
-    invoice.paymentMethod = paymentMethod as PaymentMethod;
-    invoice.paidAt = new Date();
-    await invoice.save();
-
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
-      message: 'Invoice marked as paid successfully',
+      message: 'Hóa đơn đã được ghi nhận thanh toán thành công',
       data: invoice,
     });
-  } catch (error: any) {
-    console.error('Error paying invoice:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
+  } catch (error) {
+    next(error);
   }
 };
 
-export const createMomoPayment = async (req: Request, res: Response): Promise<void> => {
+export const createMomoPayment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
-
-    const invoice = await Invoice.findByPk(id);
-    if (!invoice) {
-      res.status(404).json({ status: 'error', message: 'Invoice not found' });
-      return;
-    }
-
-    if (invoice.status === InvoiceStatus.PAID) {
-      res.status(400).json({ status: 'error', message: 'Invoice is already paid' });
-      return;
-    }
-
-    const finalPayable = Math.max(0, Number(invoice.totalAmount) - Number(invoice.discountAmount || 0));
-
     const host = req.get('host') || 'localhost:5000';
     const protocol = req.protocol || 'http';
 
-    const redirectUrl = req.body.redirectUrl && !req.body.redirectUrl.includes('localhost')
-      ? req.body.redirectUrl
-      : 'https://momo.vn';
-    const ipnUrl = 'https://webhook.site/momo-ipn';
-
-    const momoResult: any = await createMoMoPaymentUrl({
-      orderId: invoice.code,
-      amount: Math.round(finalPayable),
-      orderInfo: `Thanh toan hoa don nha khoa ${invoice.code}`,
-      redirectUrl,
-      ipnUrl,
+    const result = await invoiceService.createMomoPayment(id, {
+      host,
+      protocol,
+      redirectUrl: req.body.redirectUrl,
     });
 
-    const demoPayUrl = `${protocol}://${host}/api/invoices/${invoice.id}/momo-demo`;
-
-    res.status(200).json({
+    res.status(HttpStatus.OK).json({
       status: 'success',
-      data: {
-        ...momoResult,
-        payUrl: (momoResult && momoResult.resultCode === 0 && momoResult.payUrl) ? momoResult.payUrl : demoPayUrl,
-      },
+      data: result,
     });
-  } catch (error: any) {
-    console.error('Error creating MoMo payment:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getMomoDemoPage = async (req: Request, res: Response): Promise<void> => {
+export const handleMomoIPN = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    await invoiceService.handleMomoIPN(req.body);
+    res.status(HttpStatus.NO_CONTENT).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const confirmMomoDemoPayment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const invoice = await Invoice.findByPk(id, {
-      include: [{ model: PatientProfile, as: 'patientProfile', include: ['user'] }],
-    });
+    await invoiceService.confirmMomoDemoPayment(id);
+    res.redirect(`${env.CLIENT_URL}/invoices`);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (!invoice) {
-      res.status(404).send('Hóa đơn không tồn tại');
-      return;
-    }
+export const cancelInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const invoice = await invoiceService.cancelInvoice(id);
+
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Hóa đơn đã được hủy thành công',
+      data: invoice,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMomoDemoPage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const invoice = await invoiceService.getInvoiceById(id);
 
     const amount = Math.max(0, Number(invoice.totalAmount) - Number(invoice.discountAmount || 0));
-    const patientName = invoice.patientProfile?.user?.fullName || `Bệnh nhân #${invoice.patientProfileId}`;
-
+    const patientName = (invoice as any).patientProfile?.user?.fullName || `Bệnh nhân #${invoice.patientProfileId}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://momo.vn/pay?amount=${amount}&orderId=${invoice.code}`;
 
     const html = `
@@ -241,22 +152,15 @@ export const getMomoDemoPage = async (req: Request, res: Response): Promise<void
     </head>
     <body>
       <div class="card">
-        <div class="momo-header">
-          <span>Ví Điện Tử MoMo Sandbox</span>
-        </div>
+        <div class="momo-header"><span>Ví Điện Tử MoMo Sandbox</span></div>
         <div class="tag">Cổng Thanh Toán Thử Nghiệm Qua QR</div>
-
         <div class="qr-box">
           <img src="${qrUrl}" alt="MoMo QR Code" class="qr-img" />
           <div class="qr-hint">Quét mã QR bằng ứng dụng MoMo hoặc nút bấm thử nghiệm bên dưới</div>
         </div>
-
         <div class="info-row"><span>Mã hóa đơn:</span><strong>${invoice.code}</strong></div>
         <div class="info-row"><span>Bệnh nhân:</span><strong>${patientName}</strong></div>
-        <div class="info-row"><span>Dịch vụ:</span><strong>Khám & Điều trị nha khoa</strong></div>
-
         <div class="amount">${amount.toLocaleString('vi-VN')} VNĐ</div>
-
         <form action="/api/invoices/${invoice.id}/momo-demo-confirm" method="POST">
           <button type="submit" class="btn">Giả Lập Quét Mã & Thanh Toán Thành Công</button>
         </form>
@@ -267,88 +171,7 @@ export const getMomoDemoPage = async (req: Request, res: Response): Promise<void
 
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
-  } catch (err: any) {
-    res.status(500).send('Lỗi hệ thống');
-  }
-};
-
-export const confirmMomoDemoPayment = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const id = req.params.id as string;
-    const invoice = await Invoice.findByPk(id);
-
-    if (invoice) {
-      invoice.status = InvoiceStatus.PAID;
-      invoice.paymentMethod = PaymentMethod.MOMO;
-      invoice.paidAt = new Date();
-      invoice.momoTransId = `MOMO-TEST-${Date.now()}`;
-      await invoice.save();
-    }
-
-    res.redirect('http://localhost:5173/invoices');
-  } catch (err: any) {
-    res.status(500).send('Lỗi thanh toán');
-  }
-};
-
-export const handleMomoIPN = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const body = req.body;
-    console.log('Received MoMo IPN Callback:', body);
-
-    const isValid = verifyMoMoSignature(body);
-    if (!isValid) {
-      console.warn('Invalid MoMo IPN signature');
-      res.status(400).json({ status: 'error', message: 'Invalid signature' });
-      return;
-    }
-
-    const { orderId, resultCode, transId } = body;
-
-    if (Number(resultCode) === 0) {
-      const invoice = await Invoice.findOne({ where: { code: orderId } });
-      if (invoice && invoice.status !== InvoiceStatus.PAID) {
-        invoice.status = InvoiceStatus.PAID;
-        invoice.paymentMethod = PaymentMethod.MOMO;
-        invoice.paidAt = new Date();
-        invoice.momoTransId = String(transId || '');
-        await invoice.save();
-        console.log(`Invoice ${orderId} successfully marked as PAID via MoMo IPN`);
-      }
-    }
-
-    res.status(204).send();
-  } catch (error: any) {
-    console.error('Error handling MoMo IPN:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
-  }
-};
-
-export const cancelInvoice = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const id = req.params.id as string;
-
-    const invoice = await Invoice.findByPk(id);
-    if (!invoice) {
-      res.status(404).json({ status: 'error', message: 'Invoice not found' });
-      return;
-    }
-
-    if (invoice.status === InvoiceStatus.PAID) {
-      res.status(400).json({ status: 'error', message: 'Cannot cancel a paid invoice' });
-      return;
-    }
-
-    invoice.status = InvoiceStatus.CANCELLED;
-    await invoice.save();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Invoice cancelled successfully',
-      data: invoice,
-    });
-  } catch (error: any) {
-    console.error('Error cancelling invoice:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Internal server error' });
+  } catch (error) {
+    next(error);
   }
 };

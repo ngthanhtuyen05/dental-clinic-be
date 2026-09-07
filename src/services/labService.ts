@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+import sequelize from '../config/db.js';
 import { labRepository, LabOrderFilterOptions } from '../repositories/labRepository.js';
 import { Supplier, User, PatientProfile, StaffProfile } from '../models/index.js';
 import AppError from '../utils/AppError.js';
@@ -72,8 +74,8 @@ export const getOrderById = async (id: number) => {
 
 export const createOrder = async (data: any, createdBy?: number, creatorName: string = 'Hệ thống') => {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.floor(100 + Math.random() * 900);
-  const code = `LAB-${dateStr}-${rand}`;
+  const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+  const code = `LAB-${dateStr}-${randomHex}`;
 
   let patientProfileId = Number(data.patientProfileId);
   const profile = await PatientProfile.findByPk(patientProfileId);
@@ -98,28 +100,32 @@ export const createOrder = async (data: any, createdBy?: number, creatorName: st
   const unitCostPrice = Number(data.unitCostPrice || 0);
   const totalCostPrice = Number(data.totalCostPrice || totalUnits * unitCostPrice);
 
-  const newOrder = await labRepository.createOrder({
-    ...data,
-    code,
-    patientProfileId,
-    dentistId,
-    teethNumbers,
-    totalUnits,
-    unitCostPrice,
-    totalCostPrice,
-    createdBy,
+  const createdOrderId = await sequelize.transaction(async (t) => {
+    const newOrder = await labRepository.createOrder({
+      ...data,
+      code,
+      patientProfileId,
+      dentistId,
+      teethNumbers,
+      totalUnits,
+      unitCostPrice,
+      totalCostPrice,
+      createdBy,
+    }, { transaction: t });
+
+    // Ghi log trạng thái khởi tạo
+    await labRepository.createOrderHistory({
+      labOrderId: newOrder.id,
+      previousStatus: 'new',
+      newStatus: newOrder.status || 'draft',
+      performedBy: creatorName,
+      actionNotes: 'Khởi tạo phiếu đặt hàng Labo',
+    }, { transaction: t });
+
+    return newOrder.id;
   });
 
-  // Ghi log trạng thái khởi tạo
-  await labRepository.createOrderHistory({
-    labOrderId: newOrder.id,
-    previousStatus: 'new',
-    newStatus: newOrder.status || 'draft',
-    performedBy: creatorName,
-    actionNotes: 'Khởi tạo phiếu đặt hàng Labo',
-  });
-
-  return getOrderById(newOrder.id);
+  return getOrderById(createdOrderId);
 };
 
 export const updateOrder = async (id: number, data: any) => {

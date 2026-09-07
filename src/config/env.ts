@@ -52,6 +52,15 @@ const env = {
   ADMIN_EMAIL: getEnvVar('ADMIN_EMAIL', 'admin@dentalclinic.com'),
   ADMIN_PASSWORD: getEnvVar('ADMIN_PASSWORD', 'Admin@123456'),
 
+  // Client & CORS
+  CLIENT_URL: getEnvVar('CLIENT_URL', 'http://localhost:5173'),
+
+  // MoMo Payment Gateway
+  MOMO_PARTNER_CODE: getEnvVar('MOMO_PARTNER_CODE', 'MOMO'),
+  MOMO_ACCESS_KEY: getEnvVar('MOMO_ACCESS_KEY', 'F8BBA84267B81121'),
+  MOMO_SECRET_KEY: getEnvVar('MOMO_SECRET_KEY', 'K951B6PE1waDMi640xX0873WAFYgDRvd'),
+  MOMO_ENDPOINT: getEnvVar('MOMO_ENDPOINT', 'https://test-payment.momo.vn/v2/gateway/api/create'),
+
   // Computed helpers
   get isDevelopment(): boolean {
     return this.NODE_ENV === 'development';

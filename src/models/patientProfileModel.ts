@@ -110,6 +110,12 @@ const PatientProfile = sequelize.define<PatientProfileModel>('PatientProfile', {
   },
 }, {
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_patient_profiles_dob',
+      fields: ['dateOfBirth'],
+    },
+  ],
 });
 
 export default PatientProfile;

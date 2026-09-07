@@ -130,6 +130,20 @@ const Appointment = sequelize.define<AppointmentModel>('Appointment', {
   },
 }, {
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_appointments_date_dentist_status',
+      fields: ['appointmentDate', 'dentistId', 'status'],
+    },
+    {
+      name: 'idx_appointments_patient_date',
+      fields: ['patientId', 'appointmentDate'],
+    },
+    {
+      name: 'idx_appointments_date_starttime',
+      fields: ['appointmentDate', 'startTime'],
+    },
+  ],
 });
 
 export default Appointment;

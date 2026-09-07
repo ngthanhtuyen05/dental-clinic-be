@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import env from '../config/env.js';
 
 interface CreateMoMoPaymentParams {
   orderId: string;
@@ -9,10 +10,10 @@ interface CreateMoMoPaymentParams {
   extraData?: string;
 }
 
-const MOMO_PARTNER_CODE = process.env.MOMO_PARTNER_CODE || 'MOMO';
-const MOMO_ACCESS_KEY = process.env.MOMO_ACCESS_KEY || 'F8BBA84267B81121';
-const MOMO_SECRET_KEY = process.env.MOMO_SECRET_KEY || 'K951B6PE1waDMi640xX0873WAFYgDRvd';
-const MOMO_ENDPOINT = process.env.MOMO_ENDPOINT || 'https://test-payment.momo.vn/v2/gateway/api/create';
+const MOMO_PARTNER_CODE = env.MOMO_PARTNER_CODE;
+const MOMO_ACCESS_KEY = env.MOMO_ACCESS_KEY;
+const MOMO_SECRET_KEY = env.MOMO_SECRET_KEY;
+const MOMO_ENDPOINT = env.MOMO_ENDPOINT;
 
 export const createMoMoPaymentUrl = async (params: CreateMoMoPaymentParams) => {
   const requestId = `${params.orderId}_${Date.now()}`;

@@ -1,4 +1,5 @@
 import { Op, col, type WhereOptions } from 'sequelize';
+import sequelize from '../config/db.js';
 import { User, StaffProfile, Specialty } from '../models/index.js';
 import { UserRole } from '../constants/enums.js';
 
@@ -99,39 +100,45 @@ export class StaffRepository {
   }
 
   /**
-   * Create user + staff profile in one transaction
+   * Create user + staff profile in one atomic transaction
    */
   async createWithProfile(userData: any, profileData: any) {
-    const user = await User.create(userData);
-    const profile = await StaffProfile.create({
-      ...profileData,
-      userId: user.id,
+    const createdUserId = await sequelize.transaction(async (t) => {
+      const user = await User.create(userData, { transaction: t });
+      await StaffProfile.create({
+        ...profileData,
+        userId: user.id,
+      }, { transaction: t });
+      return user.id;
     });
+
     // Reload with association
-    return this.findById(user.id);
+    return this.findById(createdUserId);
   }
 
   /**
-   * Update user + staff profile
+   * Update user + staff profile in one transaction
    */
   async updateWithProfile(id: number, userData: any, profileData: any) {
     const user = await User.findByPk(id);
     if (!user) return null;
 
-    // Update user fields
-    if (Object.keys(userData).length > 0) {
-      await user.update(userData);
-    }
-
-    // Update profile fields
-    if (Object.keys(profileData).length > 0) {
-      let profile = await StaffProfile.findOne({ where: { userId: id } });
-      if (profile) {
-        await profile.update(profileData);
-      } else {
-        await StaffProfile.create({ ...profileData, userId: id });
+    await sequelize.transaction(async (t) => {
+      // Update user fields
+      if (Object.keys(userData).length > 0) {
+        await user.update(userData, { transaction: t });
       }
-    }
+
+      // Update profile fields
+      if (Object.keys(profileData).length > 0) {
+        let profile = await StaffProfile.findOne({ where: { userId: id }, transaction: t });
+        if (profile) {
+          await profile.update(profileData, { transaction: t });
+        } else {
+          await StaffProfile.create({ ...profileData, userId: id }, { transaction: t });
+        }
+      }
+    });
 
     return this.findById(id);
   }

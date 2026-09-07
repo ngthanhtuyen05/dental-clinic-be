@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { appointmentRepository } from '../repositories/appointmentRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { serviceRepository } from '../repositories/serviceRepository.js';
@@ -9,6 +10,7 @@ import type {
   PaginatedAppointmentsDto,
 } from '../dtos/appointmentDto.js';
 import AppError from '../utils/AppError.js';
+import HttpStatus from '../constants/httpStatus.js';
 import sequelize from '../config/db.js';
 import { Op } from 'sequelize';
 import User from '../models/userModel.js';
@@ -25,10 +27,10 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 }
 
-async function generateAppointmentCode(dateStr: string): Promise<string> {
+function generateAppointmentCode(dateStr: string): string {
   const cleanDate = dateStr.replace(/-/g, '');
   const prefix = `LH${cleanDate}-`;
-  const randomSeq = Math.floor(100 + Math.random() * 900);
+  const randomSeq = crypto.randomBytes(3).toString('hex').toUpperCase();
   return `${prefix}${randomSeq}`;
 }
 
@@ -125,35 +127,6 @@ export const createNewAppointment = async (
     }
   }
 
-  // Nếu vẫn chưa có bệnh nhân (khách vãng lai lần đầu đặt lịch) -> Tự động tạo hồ sơ bệnh nhân
-  if (!patient) {
-    const defaultPassword = await hashPassword('Dental@123');
-    const newPhone = phone || `09${Math.floor(10000000 + Math.random() * 90000000)}`;
-    const newEmail = email || `khach_${Date.now()}@dental.com`;
-    const newName = fullName || 'Khách Đặt Hẹn';
-
-    patient = await User.create({
-      fullName: newName,
-      phone: newPhone,
-      email: newEmail,
-      role: UserRole.PATIENT,
-      password: defaultPassword,
-    });
-
-    try {
-      const PatientProfileModel = (await import('../models/patientProfileModel.js')).default;
-      await PatientProfileModel.create({
-        userId: patient.id,
-        medicalHistory: null,
-        notes: null,
-      } as any);
-    } catch (e) {
-      console.warn("Could not create patient profile automatically:", e);
-    }
-  }
-
-  patientId = patient.id;
-
   // 2. Xử lý Bác sĩ (Dentist)
   let dentistId: number | null = null;
   const numDentistId = Number(inputDentistId);
@@ -171,63 +144,86 @@ export const createNewAppointment = async (
     if (availableDentist) {
       dentistId = availableDentist.id;
     } else {
-      // Fallback nếu chưa có tài khoản role DENTIST
-      const anyStaff = await User.findOne({ where: { role: [UserRole.ADMIN, UserRole.STAFF] } });
-      dentistId = anyStaff ? anyStaff.id : (patientId ?? null);
+      throw new AppError('Hiện chưa có bác sĩ nha khoa khả dụng để tiếp nhận lịch hẹn. Vui lòng liên hệ phòng khám.', HttpStatus.BAD_REQUEST);
     }
   }
 
   // 3. Xử lý Dịch vụ (Service)
   const serviceId = Number(inputServiceId);
-  let service = await serviceRepository.findById(serviceId);
-  
+  const service = await serviceRepository.findById(serviceId);
   if (!service) {
-    const allServices = await serviceRepository.findAndCount({ limit: 1, offset: 0 });
-    if (allServices && allServices.rows && allServices.rows.length > 0) {
-      service = allServices.rows[0];
-    } else {
-      throw new AppError('Dịch vụ không tồn tại.', 400);
-    }
+    throw new AppError('Dịch vụ nha khoa được chọn không tồn tại trong hệ thống.', HttpStatus.BAD_REQUEST);
   }
 
   const durationMinutes = service.durationMinutes || 30;
   const endTime = calculateEndTime(startTime, durationMinutes);
 
   // 4. Tự sinh mã code
-  const code = await generateAppointmentCode(appointmentDate);
+  const code = generateAppointmentCode(appointmentDate);
 
   // 5. Kiểm tra trùng lịch trước khi tạo
   if (dentistId) {
     const conflicts = await appointmentRepository.findConflicting(dentistId, appointmentDate, startTime, endTime);
     if (conflicts.length > 0) {
-      throw new AppError('Bác sĩ đã có lịch hẹn khác trong khung giờ này. Vui lòng chọn khung giờ khác.', 400);
+      throw new AppError('Bác sĩ đã có lịch hẹn khác trong khung giờ này. Vui lòng chọn khung giờ khác.', HttpStatus.BAD_REQUEST);
     }
   }
 
-  // 6. Tạo lịch hẹn vào Database
-  const appt = await appointmentRepository.create({
-    code,
-    patientId,
-    dentistId,
-    serviceId: service.id,
-    appointmentDate: new Date(appointmentDate),
-    startTime,
-    endTime,
-    durationMinutes,
-    status: AppointmentStatus.SCHEDULED,
-    type,
-    chiefComplaint: chiefComplaint || null,
-    notes: notes || null,
-    createdBy: currentUserId ?? null,
-    cancelReason: null,
-    checkedInAt: null,
-    startedAt: null,
-    completedAt: null,
-    cancelledAt: null,
-  } as any);
+  // 6. Tạo lịch hẹn vào Database trong một Transaction nguyên tử
+  const createdAppt = await sequelize.transaction(async (t) => {
+    let finalPatientId = patientId;
+
+    // Nếu vẫn chưa có bệnh nhân (khách vãng lai lần đầu đặt lịch) -> Tự động tạo tài khoản và hồ sơ
+    if (!patient) {
+      const defaultPassword = await hashPassword('Dental@123');
+      const newPhone = phone || `09${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const newEmail = email || `khach_${Date.now()}@dental.com`;
+      const newName = fullName || 'Khách Đặt Hẹn';
+
+      patient = await User.create({
+        fullName: newName,
+        phone: newPhone,
+        email: newEmail,
+        role: UserRole.PATIENT,
+        password: defaultPassword,
+      }, { transaction: t });
+
+      const PatientProfileModel = (await import('../models/patientProfileModel.js')).default;
+      await PatientProfileModel.create({
+        userId: patient.id,
+        medicalHistory: null,
+        notes: null,
+      } as any, { transaction: t });
+
+      finalPatientId = patient.id;
+    }
+
+    const appt = await appointmentRepository.create({
+      code,
+      patientId: finalPatientId!,
+      dentistId,
+      serviceId: service.id,
+      appointmentDate: new Date(appointmentDate),
+      startTime,
+      endTime,
+      durationMinutes,
+      status: AppointmentStatus.SCHEDULED,
+      type,
+      chiefComplaint: chiefComplaint || null,
+      notes: notes || null,
+      createdBy: currentUserId ?? null,
+      cancelReason: null,
+      checkedInAt: null,
+      startedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+    } as any, { transaction: t });
+
+    return appt;
+  });
 
   // Re-fetch đầy đủ liên kết để trả về
-  const fullAppt = await appointmentRepository.findById(appt.id);
+  const fullAppt = await appointmentRepository.findById(createdAppt.id);
 
   // Tạo bản ghi thông báo và phát sự kiện Socket.IO thời gian thực tới CMS
   try {
@@ -250,7 +246,7 @@ export const createNewAppointment = async (
       description: notifDesc,
       targetUrl: `/appointments?code=${code}`,
       data: JSON.stringify({
-        appointmentId: appt.id,
+        appointmentId: createdAppt.id,
         appointmentCode: code,
         patientName: patientDisplayName,
         patientPhone,

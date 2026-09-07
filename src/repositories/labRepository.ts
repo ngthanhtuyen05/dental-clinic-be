@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+import { Op, type Transaction } from 'sequelize';
 import {
   LabOrder,
   LabOrderHistory,
@@ -171,8 +171,8 @@ export class LabRepository {
     return LabOrder.findOne({ where: { code } });
   }
 
-  async createOrder(data: any): Promise<LabOrderModel> {
-    return LabOrder.create(data);
+  async createOrder(data: any, options?: { transaction?: Transaction }): Promise<LabOrderModel> {
+    return LabOrder.create(data, options);
   }
 
   async updateOrder(order: LabOrderModel, data: any): Promise<LabOrderModel> {
@@ -214,14 +214,17 @@ export class LabRepository {
   }
 
   // ── 2. LỊCH SỬ TRẠNG THÁI ──
-  async createOrderHistory(data: {
-    labOrderId: number;
-    previousStatus: string;
-    newStatus: string;
-    performedBy: string;
-    actionNotes?: string | null;
-  }): Promise<LabOrderHistoryModel> {
-    return LabOrderHistory.create(data);
+  async createOrderHistory(
+    data: {
+      labOrderId: number;
+      previousStatus: string;
+      newStatus: string;
+      performedBy: string;
+      actionNotes?: string | null;
+    },
+    options?: { transaction?: Transaction }
+  ): Promise<LabOrderHistoryModel> {
+    return LabOrderHistory.create(data, options);
   }
 
   // ── 3. THẺ BẢO HÀNH ──

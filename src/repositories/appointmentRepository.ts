@@ -2,7 +2,7 @@ import Appointment from '../models/appointmentModel.js';
 import User from '../models/userModel.js';
 import Service from '../models/serviceModel.js';
 import type { AppointmentModel } from '../models/appointmentModel.js';
-import { Op, type WhereOptions, type CreationAttributes } from 'sequelize';
+import { Op, type WhereOptions, type CreationAttributes, type Transaction } from 'sequelize';
 import type { AppointmentQueryParamsDto } from '../dtos/appointmentDto.js';
 
 export class AppointmentRepository {
@@ -53,8 +53,8 @@ export class AppointmentRepository {
     });
   }
 
-  async create(data: CreationAttributes<AppointmentModel>): Promise<AppointmentModel> {
-    return Appointment.create(data);
+  async create(data: CreationAttributes<AppointmentModel>, options?: { transaction?: Transaction }): Promise<AppointmentModel> {
+    return Appointment.create(data, options);
   }
 
   async update(appointment: AppointmentModel, data: Partial<AppointmentModel>): Promise<AppointmentModel> {

@@ -1,8 +1,14 @@
+import crypto from 'crypto';
 import { Op } from 'sequelize';
-import { Prescription, PrescriptionItem, PatientProfile, User, Product, DosageTemplate, UsageGuide } from '../models/index.js';
+import sequelize from '../config/db.js';
+import { Prescription, PrescriptionItem, PatientProfile, User, Product } from '../models/index.js';
 import { PrescriptionStatus } from '../constants/enums.js';
 import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
+
+// Re-export tất cả hàm của DosageTemplate và UsageGuide từ service riêng biệt
+export * from './dosageTemplateService.js';
+export * from './usageGuideService.js';
 
 export const getPrescriptions = async (params: {
   page?: number;
@@ -212,42 +218,45 @@ export const createPrescription = async (data: {
     throw new AppError('Hồ sơ bệnh nhân không hợp lệ', HttpStatus.BAD_REQUEST);
   }
 
-  // Generate code e.g. RX-20260728-001
+  // Generate collision-free code e.g. RX-20260728-A1B2C3
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const countToday = await Prescription.count();
-  const sequence = String(countToday + 1).padStart(3, '0');
-  const code = `RX-${dateStr}-${sequence}`;
+  const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+  const code = `RX-${dateStr}-${randomHex}`;
 
-  const prescription = await Prescription.create({
-    code,
-    patientProfileId: targetProfileId,
-    dentistId: data.dentistId,
-    appointmentId: data.appointmentId || null,
-    treatmentHistoryId: data.treatmentHistoryId || null,
-    diagnosis: data.diagnosis,
-    notes: data.notes || null,
-    status: data.status || PrescriptionStatus.CONFIRMED,
-    prescribedAt: new Date(),
+  const createdId = await sequelize.transaction(async (t) => {
+    const prescription = await Prescription.create({
+      code,
+      patientProfileId: targetProfileId,
+      dentistId: data.dentistId,
+      appointmentId: data.appointmentId || null,
+      treatmentHistoryId: data.treatmentHistoryId || null,
+      diagnosis: data.diagnosis,
+      notes: data.notes || null,
+      status: data.status || PrescriptionStatus.CONFIRMED,
+      prescribedAt: new Date(),
+    }, { transaction: t });
+
+    if (data.items && data.items.length > 0) {
+      const itemsToCreate = data.items.map((item) => ({
+        prescriptionId: prescription.id,
+        productId: item.productId,
+        dosageTemplateId: item.dosageTemplateId || null,
+        dosageText: item.dosageText,
+        quantityPerDose: item.quantityPerDose || 1,
+        frequency: item.frequency as any,
+        durationDays: item.durationDays || 5,
+        totalQuantity: item.totalQuantity,
+        mealRelation: item.mealRelation as any,
+        usageInstruction: item.usageInstruction || null,
+        warnings: item.warnings || null,
+      }));
+      await PrescriptionItem.bulkCreate(itemsToCreate, { transaction: t });
+    }
+
+    return prescription.id;
   });
 
-  if (data.items && data.items.length > 0) {
-    const itemsToCreate = data.items.map((item) => ({
-      prescriptionId: prescription.id,
-      productId: item.productId,
-      dosageTemplateId: item.dosageTemplateId || null,
-      dosageText: item.dosageText,
-      quantityPerDose: item.quantityPerDose || 1,
-      frequency: item.frequency as any,
-      durationDays: item.durationDays || 5,
-      totalQuantity: item.totalQuantity,
-      mealRelation: item.mealRelation as any,
-      usageInstruction: item.usageInstruction || null,
-      warnings: item.warnings || null,
-    }));
-    await PrescriptionItem.bulkCreate(itemsToCreate);
-  }
-
-  return getPrescriptionById(prescription.id);
+  return getPrescriptionById(createdId);
 };
 
 export const updatePrescriptionStatus = async (id: number, status: PrescriptionStatus) => {
@@ -260,97 +269,4 @@ export const updatePrescriptionStatus = async (id: number, status: PrescriptionS
   await prescription.save();
 
   return getPrescriptionById(id);
-};
-
-export const getDosageTemplates = async (keyword?: string, activeOnly?: boolean) => {
-  const where: any = {};
-  if (activeOnly) {
-    where.isActive = true;
-  }
-  if (keyword && keyword.trim()) {
-    const kw = `%${keyword.trim()}%`;
-    where[Op.or] = [
-      { name: { [Op.like]: kw } },
-      { instruction: { [Op.like]: kw } },
-    ];
-  }
-  return DosageTemplate.findAll({
-    where,
-    order: [['createdAt', 'DESC']],
-  });
-};
-
-export const createDosageTemplate = async (data: any) => {
-  return DosageTemplate.create(data);
-};
-
-export const getDosageTemplateById = async (id: number) => {
-  const template = await DosageTemplate.findByPk(id);
-  if (!template) {
-    throw new AppError('Không tìm thấy mẫu liều dùng', HttpStatus.NOT_FOUND);
-  }
-  return template;
-};
-
-export const updateDosageTemplate = async (id: number, data: any) => {
-  const template = await getDosageTemplateById(id);
-  await template.update(data);
-  return template;
-};
-
-export const deleteDosageTemplate = async (id: number) => {
-  const template = await getDosageTemplateById(id);
-  try {
-    await template.destroy();
-  } catch {
-    await template.update({ isActive: false });
-  }
-  return { message: 'Đã xóa mẫu liều dùng thành công' };
-};
-
-export const getUsageGuides = async (keyword?: string, activeOnly?: boolean) => {
-  const where: any = {};
-  if (activeOnly) {
-    where.isActive = true;
-  }
-  if (keyword && keyword.trim()) {
-    const kw = `%${keyword.trim()}%`;
-    where[Op.or] = [
-      { title: { [Op.like]: kw } },
-      { category: { [Op.like]: kw } },
-      { content: { [Op.like]: kw } },
-    ];
-  }
-  return UsageGuide.findAll({
-    where,
-    order: [['createdAt', 'DESC']],
-  });
-};
-
-export const createUsageGuide = async (data: any) => {
-  return UsageGuide.create(data);
-};
-
-export const getUsageGuideById = async (id: number) => {
-  const guide = await UsageGuide.findByPk(id);
-  if (!guide) {
-    throw new AppError('Không tìm thấy hướng dẫn sử dụng', HttpStatus.NOT_FOUND);
-  }
-  return guide;
-};
-
-export const updateUsageGuide = async (id: number, data: any) => {
-  const guide = await getUsageGuideById(id);
-  await guide.update(data);
-  return guide;
-};
-
-export const deleteUsageGuide = async (id: number) => {
-  const guide = await getUsageGuideById(id);
-  try {
-    await guide.destroy();
-  } catch {
-    await guide.update({ isActive: false });
-  }
-  return { message: 'Đã xóa hướng dẫn sử dụng thành công' };
 };

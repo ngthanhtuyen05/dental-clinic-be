@@ -117,6 +117,16 @@ const Invoice = sequelize.define<InvoiceModel>('Invoice', {
   },
 }, {
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_invoices_created_status',
+      fields: ['createdAt', 'status'],
+    },
+    {
+      name: 'idx_invoices_patient_created',
+      fields: ['patientProfileId', 'createdAt'],
+    },
+  ],
 });
 
 export default Invoice;

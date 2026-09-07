@@ -64,6 +64,16 @@ const TreatmentHistory = sequelize.define<TreatmentHistoryModel>('TreatmentHisto
   },
 }, {
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_treatments_date_dentist',
+      fields: ['treatmentDate', 'dentistId'],
+    },
+    {
+      name: 'idx_treatments_patient_date',
+      fields: ['patientProfileId', 'treatmentDate'],
+    },
+  ],
 });
 
 export default TreatmentHistory;
