@@ -517,14 +517,17 @@ export async function getClinicalStatistics(filter: ClinicalFilter) {
       `
       SELECT 
         COALESCE(s.name, 'Khám tổng quát') AS name,
+        COALESCE(sc.name, 'Thủ thuật nha khoa') AS category,
+        COALESCE(s.durationMinutes, 30) AS durationMinutes,
         COUNT(a.id) AS cases,
         ROUND(SUM(COALESCE(s.price, 0)) / 1000000, 1) AS revenue
       FROM Appointments a
       LEFT JOIN Services s ON s.id = a.serviceId
+      LEFT JOIN ServiceCategories sc ON sc.id = s.categoryId
       WHERE a.appointmentDate BETWEEN :startDate AND :endDate
         AND a.status = 'completed'
         ${dentistApptWhereSql}
-      GROUP BY s.id, s.name
+      GROUP BY s.id, s.name, sc.name, s.durationMinutes
       ORDER BY cases DESC
       LIMIT 8
       `,
@@ -536,12 +539,16 @@ export async function getClinicalStatistics(filter: ClinicalFilter) {
     name: string;
     cases: number;
     revenue: number;
+    category?: string;
+    durationMinutes?: number;
   }
 
   const topServices: TopServiceItem[] = (topRows || []).map((r: any) => ({
     name: String(r.name),
     cases: Number(r.cases || 0),
     revenue: Number(r.revenue || 0),
+    category: r.category ? String(r.category) : undefined,
+    durationMinutes: r.durationMinutes ? Number(r.durationMinutes) : undefined,
   }));
 
   // 2.4 Doanh thu theo chuyên khoa qua 7 tháng gần nhất từ DB
@@ -639,7 +646,7 @@ export async function getClinicalStatistics(filter: ClinicalFilter) {
   ];
 
   // 2.7 Danh sách chi tiết thủ thuật lâm sàng & Bác sĩ phụ trách chính
-  const leadDoctorRows: any = await sequelize.query(
+  let leadDoctorRows: any = await sequelize.query(
     `
     SELECT 
       COALESCE(NULLIF(TRIM(t.treatment), ''), NULLIF(TRIM(t.diagnosis), ''), 'Điều trị lâm sàng') AS serviceName,
@@ -655,23 +662,45 @@ export async function getClinicalStatistics(filter: ClinicalFilter) {
     { replacements, type: QueryTypes.SELECT }
   );
 
+  // Fallback từ các lịch hẹn đã hoàn thành nếu TreatmentHistories chưa có dữ liệu bác sĩ
+  if (!leadDoctorRows || leadDoctorRows.length === 0) {
+    leadDoctorRows = await sequelize.query(
+      `
+      SELECT 
+        COALESCE(s.name, 'Khám tổng quát') AS serviceName,
+        u.fullName AS doctorName,
+        COUNT(a.id) AS docCases
+      FROM Appointments a
+      LEFT JOIN Services s ON s.id = a.serviceId
+      LEFT JOIN Users u ON u.id = a.dentistId
+      WHERE a.appointmentDate BETWEEN :startDate AND :endDate
+        AND a.status = 'completed'
+        ${dentistApptWhereSql}
+      GROUP BY serviceName, doctorName
+      ORDER BY docCases DESC
+      `,
+      { replacements, type: QueryTypes.SELECT }
+    );
+  }
+
   const leadDoctorMap = new Map<string, string>();
-  leadDoctorRows.forEach((r: any) => {
+  (leadDoctorRows || []).forEach((r: any) => {
     const sName = String(r.serviceName);
-    if (!leadDoctorMap.has(sName)) {
-      const docName = String(r.doctorName || 'Bác sĩ phụ trách');
-      leadDoctorMap.set(sName, docName.startsWith('BS') ? docName : `BS. ${docName}`);
+    if (!leadDoctorMap.has(sName) && r.doctorName) {
+      const rawName = String(r.doctorName).trim();
+      const formatted = rawName.startsWith('BS') ? rawName : `BS. ${rawName}`;
+      leadDoctorMap.set(sName, formatted);
     }
   });
 
   const clinicalDetails = topServices.map((srv, idx) => ({
     key: String(idx + 1),
     service: srv.name,
-    category: 'Thủ thuật nha khoa',
+    category: srv.category || 'Thủ thuật nha khoa',
     cases: srv.cases,
-    avgTime: '30 - 45 phút',
+    avgTime: srv.durationMinutes ? `${srv.durationMinutes} phút` : '30 - 45 phút',
     revenue: formatVND(srv.revenue * 1000000),
-    leadDoctor: leadDoctorMap.get(srv.name) || 'BS. Bác sĩ phụ trách',
+    leadDoctor: leadDoctorMap.get(srv.name) || 'BS. Phụ trách ca',
     successRate: 100,
   }));
 
