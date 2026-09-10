@@ -6,6 +6,7 @@ export class ProductResponseDto {
   unit: string;
   supplierId: number | null;
   minStock: number;
+  sellingPrice: number;
   description: string | null;
   isActive: boolean;
   totalStock: number;
@@ -21,6 +22,7 @@ export class ProductResponseDto {
     this.unit = product.unit;
     this.supplierId = product.supplierId;
     this.minStock = product.minStock;
+    this.sellingPrice = Number(product.sellingPrice ?? product.dataValues?.sellingPrice ?? 0);
     this.description = product.description;
     this.isActive = product.isActive;
     this.totalStock = parseInt(product.dataValues?.totalStock ?? product.totalStock ?? 0, 10);

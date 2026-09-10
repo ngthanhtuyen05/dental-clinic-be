@@ -1,6 +1,7 @@
 import Appointment from '../models/appointmentModel.js';
 import User from '../models/userModel.js';
 import Service from '../models/serviceModel.js';
+import { Prescription, PrescriptionItem, Product, StockBatch } from '../models/index.js';
 import type { AppointmentModel } from '../models/appointmentModel.js';
 import { Op, type WhereOptions, type CreationAttributes, type Transaction } from 'sequelize';
 import type { AppointmentQueryParamsDto } from '../dtos/appointmentDto.js';
@@ -31,10 +32,15 @@ export class AppointmentRepository {
           as: 'service',
           attributes: ['id', 'name', 'price', 'durationMinutes'],
         },
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'fullName'],
+        },
       ],
       order: [
-        ['appointmentDate', 'DESC'],
-        ['startTime', 'DESC'],
+        ['appointmentDate', 'ASC'],
+        ['startTime', 'ASC'],
       ],
       limit: options.limit,
       offset: options.offset,
@@ -49,6 +55,40 @@ export class AppointmentRepository {
         { model: User, as: 'dentist', attributes: ['id', 'fullName', 'email'] },
         { model: Service, as: 'service', attributes: ['id', 'name', 'price', 'durationMinutes'] },
         { model: User, as: 'creator', attributes: ['id', 'fullName'] },
+        {
+          model: Prescription,
+          as: 'prescriptions',
+          include: [
+            {
+              model: PrescriptionItem,
+              as: 'items',
+              include: [
+                {
+                  model: Product,
+                  as: 'product',
+                  attributes: ['id', 'code', 'name', 'unit', 'sellingPrice'],
+                  include: [
+                    {
+                      model: StockBatch,
+                      as: 'batches',
+                      attributes: ['importPrice', 'currentQty'],
+                      required: false,
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              model: User,
+              as: 'dentist',
+              attributes: ['id', 'fullName', 'email'],
+            },
+          ],
+          required: false,
+        },
+      ],
+      order: [
+        [{ model: Prescription, as: 'prescriptions' }, 'createdAt', 'DESC'],
       ],
     });
   }

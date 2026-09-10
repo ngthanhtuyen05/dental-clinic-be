@@ -8,6 +8,7 @@ export const createProductSchema = z.object({
     unit: z.nativeEnum(ProductUnit, { message: 'Đơn vị tính không hợp lệ' }),
     supplierId: z.number().int().positive().nullable().optional(),
     minStock: z.number().int().min(0, 'Mức tối thiểu phải >= 0'),
+    sellingPrice: z.number().min(0, 'Giá bán niêm yết phải >= 0').optional(),
     description: z.string().max(1000).nullable().optional(),
   }),
 });
@@ -19,6 +20,7 @@ export const updateProductSchema = z.object({
     unit: z.nativeEnum(ProductUnit).optional(),
     supplierId: z.number().int().positive().nullable().optional(),
     minStock: z.number().int().min(0).optional(),
+    sellingPrice: z.number().min(0, 'Giá bán niêm yết phải >= 0').optional(),
     description: z.string().max(1000).nullable().optional(),
     isActive: z.boolean().optional(),
   }),

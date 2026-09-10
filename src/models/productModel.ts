@@ -10,6 +10,7 @@ export interface ProductModel extends Model<InferAttributes<ProductModel>, Infer
   unit: ProductUnit;
   supplierId: CreationOptional<number | null>;
   minStock: number;
+  sellingPrice: CreationOptional<number>;
   description: CreationOptional<string | null>;
   isActive: CreationOptional<boolean>;
   createdAt?: CreationOptional<Date>;
@@ -48,6 +49,11 @@ const Product = sequelize.define<ProductModel>('Product', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 0,
+  },
+  sellingPrice: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0.00,
   },
   description: {
     type: DataTypes.TEXT,

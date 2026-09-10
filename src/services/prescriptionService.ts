@@ -18,6 +18,7 @@ export const getPrescriptions = async (params: {
   startDate?: string;
   endDate?: string;
   patientProfileId?: number;
+  appointmentId?: number;
 }) => {
   const page = params.page || 1;
   const limit = params.limit || 10;
@@ -31,6 +32,10 @@ export const getPrescriptions = async (params: {
 
   if (params.patientProfileId) {
     where.patientProfileId = params.patientProfileId;
+  }
+
+  if (params.appointmentId) {
+    where.appointmentId = params.appointmentId;
   }
 
   if (params.startDate && params.endDate) {
@@ -86,7 +91,7 @@ export const getPrescriptions = async (params: {
           {
             model: Product,
             as: 'product',
-            attributes: ['id', 'code', 'name', 'unit'],
+            attributes: ['id', 'code', 'name', 'unit', 'sellingPrice'],
           },
         ],
       },
@@ -145,7 +150,7 @@ export const getPrescriptionById = async (id: number) => {
           {
             model: Product,
             as: 'product',
-            attributes: ['id', 'code', 'name', 'unit'],
+            attributes: ['id', 'code', 'name', 'unit', 'sellingPrice'],
           },
         ],
       },

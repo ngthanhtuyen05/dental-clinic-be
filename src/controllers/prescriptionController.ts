@@ -11,8 +11,9 @@ export const getPrescriptions = async (req: Request, res: Response, next: NextFu
     const startDate = (req.query.startDate as string) || undefined;
     const endDate = (req.query.endDate as string) || undefined;
     const patientProfileId = req.query.patientProfileId ? Number(req.query.patientProfileId) : undefined;
+    const appointmentId = req.query.appointmentId ? Number(req.query.appointmentId) : undefined;
 
-    const result = await prescriptionService.getPrescriptions({ page, limit, keyword, status, startDate, endDate, patientProfileId });
+    const result = await prescriptionService.getPrescriptions({ page, limit, keyword, status, startDate, endDate, patientProfileId, appointmentId });
 
     res.status(HttpStatus.OK).json({
       status: 'success',

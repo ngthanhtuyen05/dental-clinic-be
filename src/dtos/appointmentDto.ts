@@ -91,6 +91,7 @@ export class AppointmentResponseDto {
   public createdAt: Date;
   public updatedAt: Date;
   public createdBy: number | null;
+  public prescriptions?: any[];
 
   constructor(appointment: any) {
     this.id = appointment.id;
@@ -132,6 +133,20 @@ export class AppointmentResponseDto {
     this.createdAt = appointment.createdAt || new Date();
     this.updatedAt = appointment.updatedAt || new Date();
     this.createdBy = appointment.createdBy || null;
+
+    this.prescriptions = appointment.prescriptions
+      ? appointment.prescriptions.map((p: any) => {
+          const plain = typeof p.get === 'function' ? p.get({ plain: true }) : p;
+          return {
+            ...plain,
+            patient: {
+              id: this.patientId,
+              fullName: this.patientName,
+              phone: this.patientPhone,
+            },
+          };
+        })
+      : undefined;
   }
 
   static toList(appointments: any[]): AppointmentResponseDto[] {

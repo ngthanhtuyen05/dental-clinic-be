@@ -5,6 +5,7 @@ import * as m002 from './migrations/002_add_discount_to_invoices.js';
 import * as m003 from './migrations/003_add_specialty_slug.js';
 import * as m004 from './migrations/004_add_doctor_profile_fields.js';
 import * as m005 from './migrations/005_add_performance_indexes.js';
+import * as m006 from './migrations/006_add_selling_price_to_products.js';
 
 export interface MigrationModule {
   name: string;
@@ -18,6 +19,7 @@ export const registeredMigrations: MigrationModule[] = [
   m003,
   m004,
   m005,
+  m006,
 ];
 
 /**
