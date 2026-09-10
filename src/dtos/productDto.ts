@@ -7,6 +7,8 @@ export class ProductResponseDto {
   supplierId: number | null;
   minStock: number;
   sellingPrice: number;
+  importUnit: string | null;
+  conversionRate: number;
   description: string | null;
   isActive: boolean;
   totalStock: number;
@@ -23,9 +25,12 @@ export class ProductResponseDto {
     this.supplierId = product.supplierId;
     this.minStock = product.minStock;
     this.sellingPrice = Number(product.sellingPrice ?? product.dataValues?.sellingPrice ?? 0);
+    this.importUnit = product.importUnit ?? product.dataValues?.importUnit ?? null;
+    this.conversionRate = Number(product.conversionRate ?? product.dataValues?.conversionRate ?? 1);
     this.description = product.description;
     this.isActive = product.isActive;
     this.totalStock = parseInt(product.dataValues?.totalStock ?? product.totalStock ?? 0, 10);
+
     this.supplier = product.supplier
       ? { id: product.supplier.id, name: product.supplier.name }
       : null;

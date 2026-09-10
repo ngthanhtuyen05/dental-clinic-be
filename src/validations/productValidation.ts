@@ -9,6 +9,8 @@ export const createProductSchema = z.object({
     supplierId: z.number().int().positive().nullable().optional(),
     minStock: z.number().int().min(0, 'Mức tối thiểu phải >= 0'),
     sellingPrice: z.number().min(0, 'Giá bán niêm yết phải >= 0').optional(),
+    importUnit: z.string().max(20).nullable().optional(),
+    conversionRate: z.number().int().min(1, 'Tỉ lệ quy đổi phải >= 1').optional(),
     description: z.string().max(1000).nullable().optional(),
   }),
 });
@@ -21,7 +23,10 @@ export const updateProductSchema = z.object({
     supplierId: z.number().int().positive().nullable().optional(),
     minStock: z.number().int().min(0).optional(),
     sellingPrice: z.number().min(0, 'Giá bán niêm yết phải >= 0').optional(),
+    importUnit: z.string().max(20).nullable().optional(),
+    conversionRate: z.number().int().min(1, 'Tỉ lệ quy đổi phải >= 1').optional(),
     description: z.string().max(1000).nullable().optional(),
     isActive: z.boolean().optional(),
   }),
 });
+

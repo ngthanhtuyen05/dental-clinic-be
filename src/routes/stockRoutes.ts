@@ -1,10 +1,13 @@
 import express from 'express';
 import {
   importStock,
+
   getTransactions,
   getProductBatches,
   consumeStock,
   adjustStock,
+  getExpiryAlerts,
+  getInventoryStats,
 } from '../controllers/stockController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
@@ -18,6 +21,12 @@ import {
 const router = express.Router();
 
 router.use(protect);
+
+// GET /api/stock/stats — thống kê KPI kho
+router.get('/stats', checkPermission(['inventory.view', 'inventory.transactions']), getInventoryStats);
+
+// GET /api/stock/alerts/expiry — cảnh báo các lô cận date / quá hạn
+router.get('/alerts/expiry', checkPermission(['inventory.view', 'inventory.transactions']), getExpiryAlerts);
 
 // POST /api/stock/import — nhập kho
 router.post('/import', checkPermission('inventory.import'), validate(importStockSchema), importStock);
@@ -49,4 +58,5 @@ router.get(
 router.get('/transactions', checkPermission('inventory.transactions'), getTransactions);
 
 export default router;
+
 

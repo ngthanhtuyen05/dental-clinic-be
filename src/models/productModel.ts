@@ -11,6 +11,8 @@ export interface ProductModel extends Model<InferAttributes<ProductModel>, Infer
   supplierId: CreationOptional<number | null>;
   minStock: number;
   sellingPrice: CreationOptional<number>;
+  importUnit: CreationOptional<string | null>;
+  conversionRate: CreationOptional<number>;
   description: CreationOptional<string | null>;
   isActive: CreationOptional<boolean>;
   createdAt?: CreationOptional<Date>;
@@ -55,6 +57,16 @@ const Product = sequelize.define<ProductModel>('Product', {
     allowNull: false,
     defaultValue: 0.00,
   },
+  importUnit: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    defaultValue: null,
+  },
+  conversionRate: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+  },
   description: {
     type: DataTypes.TEXT,
     allowNull: true,
@@ -64,6 +76,7 @@ const Product = sequelize.define<ProductModel>('Product', {
     allowNull: false,
     defaultValue: true,
   },
+
 }, {
   timestamps: true,
 });

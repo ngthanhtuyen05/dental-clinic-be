@@ -317,3 +317,72 @@ export const adjustStock = async (params: AdjustStockParams) => {
     throw error;
   }
 };
+
+export const getExpiryAlerts = async (days = 60) => {
+  const batches = await stockRepository.findExpiringBatches(days);
+  const now = Date.now();
+
+  const formatted = batches.map((b: any) => {
+    const expTime = new Date(b.expiryDate).getTime();
+    const daysRemaining = Math.ceil((expTime - now) / (24 * 60 * 60 * 1000));
+    const isExpired = daysRemaining < 0;
+
+    return {
+      id: b.id,
+      batchNumber: b.batchNumber,
+      productId: b.productId,
+      currentQty: b.currentQty,
+      initialQty: b.initialQty,
+      importPrice: Number(b.importPrice),
+      manufacturingDate: b.manufacturingDate,
+      expiryDate: b.expiryDate,
+      daysRemaining,
+      isExpired,
+      product: {
+        id: b.product?.id,
+        code: b.product?.code,
+        name: b.product?.name,
+        unit: b.product?.unit,
+        importUnit: b.product?.importUnit,
+        conversionRate: b.product?.conversionRate || 1,
+        category: b.product?.category,
+      },
+    };
+  });
+
+  const expiredCount = formatted.filter((b) => b.isExpired).length;
+  const expiringSoonCount = formatted.filter((b) => !b.isExpired && b.daysRemaining <= days).length;
+
+  return {
+    days,
+    totalAlerts: formatted.length,
+    expiredCount,
+    expiringSoonCount,
+    batches: formatted,
+  };
+};
+
+export const getInventoryStats = async () => {
+  const summary = await stockRepository.getInventoryStatsSummary();
+  const allProducts = await productRepository.findAndCount({ limit: 1000, offset: 0 });
+
+  const lowStockCount = allProducts.rows.filter((p: any) => {
+    const total = Number(p.dataValues?.totalStock ?? p.totalStock ?? 0);
+    return total > 0 && total <= p.minStock;
+  }).length;
+
+  const outOfStockCount = allProducts.rows.filter((p: any) => {
+    const total = Number(p.dataValues?.totalStock ?? p.totalStock ?? 0);
+    return total === 0;
+  }).length;
+
+  return {
+    totalProducts: summary.totalProducts,
+    totalStockValue: summary.totalStockValue,
+    lowStockCount,
+    outOfStockCount,
+    expiringSoonCount: summary.expiringSoonCount,
+    expiredCount: summary.expiredCount,
+  };
+};
+

@@ -98,6 +98,78 @@ export class StockRepository {
     }
     return counts;
   }
+
+  /**
+   * Tìm tất cả các lô hàng cận date hoặc đã quá hạn còn tồn kho
+   */
+  async findExpiringBatches(days = 60) {
+    const today = new Date().toISOString().split('T')[0];
+    const targetDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const batches = await StockBatch.findAll({
+      where: {
+        currentQty: { [Op.gt]: 0 },
+        expiryDate: {
+          [Op.ne]: null,
+          [Op.lte]: targetDate,
+        },
+      },
+      order: [['expiryDate', 'ASC']],
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'code', 'name', 'unit', 'importUnit', 'conversionRate', 'category', 'minStock'],
+        },
+      ],
+    });
+
+    return batches;
+  }
+
+  /**
+   * Thống kê tổng quan KPI kho (tổng vốn, cảnh báo hết hàng, cận date)
+   */
+  async getInventoryStatsSummary() {
+    const today = new Date().toISOString().split('T')[0];
+    const next60Days = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const [totalProducts, valueResult, expiredCount, expiringSoonCount] = await Promise.all([
+      Product.count({ where: { isActive: true } }),
+      StockBatch.findOne({
+        attributes: [[fn('SUM', fn('COALESCE', col('currentQty') as any, 0)), 'totalQty']],
+        raw: true,
+      }),
+      StockBatch.count({
+        where: {
+          currentQty: { [Op.gt]: 0 },
+          expiryDate: { [Op.ne]: null, [Op.lt]: today },
+        },
+      }),
+      StockBatch.count({
+        where: {
+          currentQty: { [Op.gt]: 0 },
+          expiryDate: { [Op.ne]: null, [Op.between]: [today, next60Days] },
+        },
+      }),
+    ]);
+
+    // Query value by sum(currentQty * importPrice)
+    const batches = await StockBatch.findAll({
+      where: { currentQty: { [Op.gt]: 0 } },
+      attributes: ['currentQty', 'importPrice'],
+      raw: true,
+    }) as any[];
+    const totalStockValue = batches.reduce((sum, b) => sum + (Number(b.currentQty) || 0) * (Number(b.importPrice) || 0), 0);
+
+    return {
+      totalProducts,
+      totalStockValue,
+      expiredCount,
+      expiringSoonCount,
+    };
+  }
 }
 
 export const stockRepository = new StockRepository();
+

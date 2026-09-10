@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+  import { Request, Response, NextFunction } from 'express';
 import * as stockService from '../services/stockService.js';
 import { StockBatchResponseDto, StockTransactionResponseDto } from '../dtos/stockDto.js';
 import HttpStatus from '../constants/httpStatus.js';
@@ -107,4 +107,30 @@ export const adjustStock = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+export const getExpiryAlerts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const days = parseInt(req.query.days as string, 10) || 60;
+    const result = await stockService.getExpiryAlerts(days);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getInventoryStats = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const stats = await stockService.getInventoryStats();
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
