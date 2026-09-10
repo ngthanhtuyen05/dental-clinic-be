@@ -53,3 +53,58 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
     next(error);
   }
 };
+
+export const getProductBatches = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const productId = Number(req.params.productId);
+    const batches = await stockService.getProductBatches(productId);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: StockBatchResponseDto.toList(batches),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const consumeStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const result = await stockService.consumeStock({
+      items: req.body.items,
+      performedBy: userId,
+      reason: req.body.reason,
+    });
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Xuất kho vật tư thành công',
+      data: {
+        totalItems: result.totalItems,
+        totalQuantity: result.totalQuantity,
+        transactions: StockTransactionResponseDto.toList(result.transactions),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const adjustStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const result = await stockService.adjustStock({
+      productId: req.body.productId,
+      actualQuantity: req.body.actualQuantity,
+      performedBy: userId,
+      reason: req.body.reason,
+    });
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Cân bằng tồn kho thành công',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

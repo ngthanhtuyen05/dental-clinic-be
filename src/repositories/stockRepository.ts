@@ -1,6 +1,9 @@
-import { fn, col } from 'sequelize';
+import { fn, col, Op } from 'sequelize';
 import { StockBatch, StockTransaction, Product, User } from '../models/index.js';
 import sequelize from '../config/db.js';
+import { StockTransactionType } from '../constants/enums.js';
+import AppError from '../utils/AppError.js';
+import HttpStatus from '../constants/httpStatus.js';
 
 export class StockRepository {
   async createBatch(data: {
@@ -24,6 +27,24 @@ export class StockRepository {
     reason?: string | null;
   }, transaction?: any) {
     return StockTransaction.create(data as any, { transaction });
+  }
+
+  async findBatchById(batchId: number) {
+    return StockBatch.findByPk(batchId);
+  }
+
+  async findBatchesByProduct(productId: number, onlyAvailable = true) {
+    const where: any = { productId };
+    if (onlyAvailable) {
+      where.currentQty = { [Op.gt]: 0 };
+    }
+    return StockBatch.findAll({
+      where,
+      order: [
+        ['expiryDate', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    });
   }
 
   /**

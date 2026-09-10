@@ -103,3 +103,217 @@ export const getTransactions = async (params: GetTransactionsParams) => {
     typeCounts,
   };
 };
+
+export const getProductBatches = async (productId: number) => {
+  const product = await productRepository.findById(productId);
+  if (!product) {
+    throw new AppError(`Sản phẩm với ID ${productId} không tồn tại`, HttpStatus.NOT_FOUND);
+  }
+  const batches = await stockRepository.findBatchesByProduct(productId, true);
+  return batches;
+};
+
+interface ConsumeItem {
+  productId: number;
+  quantity: number;
+  batchId?: number | null;
+  type?: StockTransactionType;
+  reason?: string | null;
+}
+
+interface ConsumeStockParams {
+  items: ConsumeItem[];
+  performedBy: number;
+  reason?: string;
+}
+
+export const consumeStock = async (params: ConsumeStockParams) => {
+  const { items, performedBy, reason: globalReason } = params;
+
+  // Validate all products
+  for (const item of items) {
+    const product = await productRepository.findById(item.productId);
+    if (!product) {
+      throw new AppError(`Sản phẩm với ID ${item.productId} không tồn tại`, HttpStatus.NOT_FOUND);
+    }
+  }
+
+  const sequelize = await stockRepository.getSequelizeInstance();
+  const transaction = await sequelize.transaction();
+
+  try {
+    const createdTransactions = [];
+
+    for (const item of items) {
+      const itemType = item.type || StockTransactionType.TREATMENT;
+      const itemReason = item.reason || globalReason || 'Xuất kho sử dụng điều trị / phòng khám';
+
+      if (item.batchId) {
+        // Chỉ định lô cụ thể
+        const batch = await stockRepository.findBatchById(item.batchId);
+        if (!batch || batch.productId !== item.productId) {
+          throw new AppError(`Lô hàng #${item.batchId} không hợp lệ cho sản phẩm này`, HttpStatus.BAD_REQUEST);
+        }
+        if (batch.currentQty < item.quantity) {
+          throw new AppError(
+            `Lô hàng ${batch.batchNumber} chỉ còn ${batch.currentQty} (yêu cầu xuất ${item.quantity})`,
+            HttpStatus.BAD_REQUEST
+          );
+        }
+
+        await batch.decrement('currentQty', { by: item.quantity, transaction });
+
+        const tx = await stockRepository.createTransaction({
+          productId: item.productId,
+          batchId: batch.id,
+          type: itemType,
+          quantity: item.quantity,
+          performedBy,
+          reason: itemReason,
+        }, transaction);
+
+        createdTransactions.push(tx);
+      } else {
+        // Tự động phân bổ FEFO / FIFO (lô hết hạn trước, nhập trước trừ trước)
+        const batches = await stockRepository.findBatchesByProduct(item.productId, true);
+        const totalStock = batches.reduce((sum, b) => sum + b.currentQty, 0);
+
+        if (totalStock < item.quantity) {
+          const prod = await productRepository.findById(item.productId);
+          throw new AppError(
+            `Sản phẩm "${prod?.name || item.productId}" không đủ tồn kho để xuất. Tồn hiện tại: ${totalStock}, yêu cầu: ${item.quantity}`,
+            HttpStatus.BAD_REQUEST
+          );
+        }
+
+        let remaining = item.quantity;
+        for (const batch of batches) {
+          if (remaining <= 0) break;
+          const take = Math.min(batch.currentQty, remaining);
+          await batch.decrement('currentQty', { by: take, transaction });
+
+          const tx = await stockRepository.createTransaction({
+            productId: item.productId,
+            batchId: batch.id,
+            type: itemType,
+            quantity: take,
+            performedBy,
+            reason: `${itemReason} (Lô ${batch.batchNumber})`,
+          }, transaction);
+
+          createdTransactions.push(tx);
+          remaining -= take;
+        }
+      }
+    }
+
+    await transaction.commit();
+
+    return {
+      totalItems: items.length,
+      totalQuantity: items.reduce((sum, i) => sum + i.quantity, 0),
+      transactions: createdTransactions,
+    };
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+};
+
+interface AdjustStockParams {
+  productId: number;
+  actualQuantity: number;
+  performedBy: number;
+  reason: string;
+}
+
+export const adjustStock = async (params: AdjustStockParams) => {
+  const { productId, actualQuantity, performedBy, reason } = params;
+
+  const product = await productRepository.findById(productId);
+  if (!product) {
+    throw new AppError(`Sản phẩm với ID ${productId} không tồn tại`, HttpStatus.NOT_FOUND);
+  }
+
+  const currentTotal = await stockRepository.getProductTotalStock(productId);
+  const diff = actualQuantity - currentTotal;
+
+  if (diff === 0) {
+    return {
+      productId,
+      currentStock: currentTotal,
+      actualQuantity,
+      diff: 0,
+      message: 'Số lượng thực tế khớp chính xác với hệ thống, không có biến động tồn kho.',
+    };
+  }
+
+  const sequelize = await stockRepository.getSequelizeInstance();
+  const transaction = await sequelize.transaction();
+
+  try {
+    if (diff < 0) {
+      // Thâm hụt (giảm kho)
+      const deductQty = Math.abs(diff);
+      const batches = await stockRepository.findBatchesByProduct(productId, true);
+
+      let remaining = deductQty;
+      for (const batch of batches) {
+        if (remaining <= 0) break;
+        const take = Math.min(batch.currentQty, remaining);
+        await batch.decrement('currentQty', { by: take, transaction });
+
+        await stockRepository.createTransaction({
+          productId,
+          batchId: batch.id,
+          type: StockTransactionType.ADJUSTMENT,
+          quantity: take,
+          performedBy,
+          reason: `Kiểm kê điều chỉnh giảm ${deductQty} (Lô ${batch.batchNumber} trừ ${take}) - Lý do: ${reason}`,
+        }, transaction);
+
+        remaining -= take;
+      }
+    } else {
+      // Dư thừa (tăng kho)
+      const addQty = diff;
+      const batches = await stockRepository.findBatchesByProduct(productId, false);
+      let targetBatch = batches.length > 0 ? batches[batches.length - 1] : null;
+
+      if (targetBatch) {
+        await targetBatch.increment('currentQty', { by: addQty, transaction });
+      } else {
+        targetBatch = await stockRepository.createBatch({
+          productId,
+          batchNumber: `LOT-ADJ-${Date.now().toString().slice(-6)}`,
+          initialQty: addQty,
+          currentQty: addQty,
+          importPrice: 0,
+        }, transaction);
+      }
+
+      await stockRepository.createTransaction({
+        productId,
+        batchId: targetBatch.id,
+        type: StockTransactionType.ADJUSTMENT,
+        quantity: addQty,
+        performedBy,
+        reason: `Kiểm kê điều chỉnh tăng +${addQty} (Lô ${targetBatch.batchNumber}) - Lý do: ${reason}`,
+      }, transaction);
+    }
+
+    await transaction.commit();
+
+    return {
+      productId,
+      productName: product.name,
+      previousStock: currentTotal,
+      newStock: actualQuantity,
+      diff,
+      reason,
+    };
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+};
