@@ -26,6 +26,7 @@ export interface PatientProfileModel extends Model<InferAttributes<PatientProfil
   // Tiền sử nha khoa & lý do khám
   dentalHistory: CreationOptional<string | null>;     // Tiền sử làm răng trước đây (Niềng răng, Implant...)
   chiefComplaint: CreationOptional<string | null>;    // Lý do chính đến khám (Đau răng, Thẩm mỹ sứ, Niềng răng...)
+  odontogram?: CreationOptional<any[] | null>;        // Sơ đồ 32 răng lâm sàng (FDI)
   status: CreationOptional<PatientStatus>;             // Trạng thái bệnh nhân (active/inactive)
   
   createdAt?: CreationOptional<Date>;
@@ -101,6 +102,10 @@ const PatientProfile = sequelize.define<PatientProfileModel>('PatientProfile', {
   },
   chiefComplaint: {
     type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  odontogram: {
+    type: DataTypes.JSON,
     allowNull: true,
   },
   status: {

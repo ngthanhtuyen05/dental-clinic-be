@@ -11,11 +11,13 @@ import {
   createPatientPrescription,
   getPatientVisits,
   getPatientVisitDetail,
+  getPatientOdontogram,
+  updatePatientOdontogram,
 } from '../controllers/patientController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
 import { validate } from '../middlewares/validate.js';
-import { createPatientSchema, updatePatientSchema } from '../validations/patientValidation.js';
+import { createPatientSchema, updatePatientSchema, updateOdontogramSchema } from '../validations/patientValidation.js';
 
 const router = express.Router();
 
@@ -36,6 +38,10 @@ router.route('/:id/visits')
 
 router.route('/:id/visits/:visitId')
   .get(checkPermission('patients.view'), getPatientVisitDetail);
+
+router.route('/:id/odontogram')
+  .get(checkPermission('patients.view'), getPatientOdontogram)
+  .put(checkPermission('patients.edit'), validate(updateOdontogramSchema), updatePatientOdontogram);
 
 router.route('/:id')
   .get(checkPermission('patients.view'), getPatient)

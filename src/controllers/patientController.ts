@@ -203,3 +203,32 @@ export const getPatientVisitDetail = async (req: Request, res: Response, next: N
   }
 };
 
+export const getPatientOdontogram = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parsePatientId(req.params.id as string);
+    const teeth = await patientService.getPatientOdontogram(id);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      data: teeth,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updatePatientOdontogram = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = parsePatientId(req.params.id as string);
+    const teeth = req.body.teeth || req.body;
+    const result = await patientService.updatePatientOdontogram(id, teeth);
+    res.status(HttpStatus.OK).json({
+      status: 'success',
+      message: 'Cập nhật sơ đồ răng thành công',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+

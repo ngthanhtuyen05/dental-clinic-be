@@ -25,6 +25,7 @@ export interface CreatePatientRequestDto {
   isPregnant?: boolean;
   dentalHistory?: string;
   chiefComplaint?: string;
+  odontogram?: any[];
 }
 
 export interface UpdatePatientRequestDto {
@@ -45,6 +46,7 @@ export interface UpdatePatientRequestDto {
   isPregnant?: boolean;
   dentalHistory?: string;
   chiefComplaint?: string;
+  odontogram?: any[];
 }
 
 export interface PaginatedPatientsDto {
@@ -71,6 +73,7 @@ export class PatientResponseDto {
   public status: 'active' | 'inactive';
   public patientProfileId: number;
   public rawId: number;
+  public odontogram: any[] | null;
   public profileDetails: Record<string, any>;
 
   constructor(patient: any) {
@@ -103,6 +106,7 @@ export class PatientResponseDto {
     this.history = profile?.allergies || 'Không có';
     this.lastVisit = lastVisit ? new Date(lastVisit).toISOString().split('T')[0] : '';
     this.status = profile?.status || PatientStatus.ACTIVE;
+    this.odontogram = profile?.odontogram || null;
     this.profileDetails = {
       emergencyContactName: profile?.emergencyContactName || '',
       emergencyContactPhone: profile?.emergencyContactPhone || '',
@@ -115,6 +119,7 @@ export class PatientResponseDto {
       isPregnant: profile?.isPregnant ?? false,
       dentalHistory: profile?.dentalHistory || '',
       chiefComplaint: profile?.chiefComplaint || '',
+      odontogram: profile?.odontogram || null,
     };
   }
 

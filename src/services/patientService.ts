@@ -85,6 +85,7 @@ export const createNewPatient = async (data: CreatePatientRequestDto) => {
       isPregnant: isPregnant ?? false,
       dentalHistory,
       chiefComplaint,
+      odontogram: (data as any).odontogram || null,
     } as any, t);
 
     return user;
@@ -132,10 +133,35 @@ export const updatePatient = async (id: number, data: UpdatePatientRequestDto) =
       isPregnant: profileData.isPregnant,
       dentalHistory: profileData.dentalHistory,
       chiefComplaint: profileData.chiefComplaint,
+      odontogram: profileData.odontogram,
     } as any);
   }
 
   return await patientRepository.findById(id);
+};
+
+export const getPatientOdontogram = async (id: number) => {
+  const patient = await patientRepository.findById(id);
+  if (!patient) {
+    throw new AppError('Không tìm thấy bệnh nhân.', 404);
+  }
+  const profile = (patient as any).patientProfile;
+  return profile?.odontogram || [];
+};
+
+export const updatePatientOdontogram = async (id: number, teeth: any[]) => {
+  const patient = await patientRepository.findById(id);
+  if (!patient) {
+    throw new AppError('Không tìm thấy bệnh nhân.', 404);
+  }
+  const profile = (patient as any).patientProfile;
+  if (!profile) {
+    throw new AppError('Không tìm thấy hồ sơ bệnh án.', 404);
+  }
+  await patientProfileRepository.update(profile, {
+    odontogram: teeth,
+  } as any);
+  return teeth;
 };
 
 export const deletePatient = async (id: number) => {

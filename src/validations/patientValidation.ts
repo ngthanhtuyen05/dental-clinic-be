@@ -21,6 +21,7 @@ export const createPatientSchema = z.object({
     isPregnant: z.boolean().optional(),
     dentalHistory: z.string().optional(),
     chiefComplaint: z.string().optional(),
+    odontogram: z.array(z.any()).optional(),
   }),
 });
 
@@ -43,5 +44,12 @@ export const updatePatientSchema = z.object({
     isPregnant: z.boolean().optional(),
     dentalHistory: z.string().optional(),
     chiefComplaint: z.string().optional(),
+    odontogram: z.array(z.any()).optional(),
+  }),
+});
+
+export const updateOdontogramSchema = z.object({
+  body: z.object({
+    teeth: z.array(z.any()),
   }),
 });
