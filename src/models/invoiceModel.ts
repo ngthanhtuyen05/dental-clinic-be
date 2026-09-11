@@ -11,10 +11,14 @@ export interface InvoiceModel extends Model<InferAttributes<InvoiceModel>, Infer
   prescriptionId?: CreationOptional<number | null>;
   totalAmount: number;         // Nguyên giá ban đầu
   discountAmount: number;      // Số tiền giảm giá
+  paidAmount?: CreationOptional<number>;      // Số tiền đã thanh toán
+  remainingAmount?: CreationOptional<number>; // Số tiền còn nợ lại
   paymentMethod?: CreationOptional<PaymentMethod | null>;
   status: CreationOptional<InvoiceStatus>;
   paidAt?: CreationOptional<Date | null>;
   momoTransId?: CreationOptional<string | null>;
+  transactionRef?: CreationOptional<string | null>; // Mã tham chiếu POS / Chuyển khoản
+  items?: CreationOptional<any[] | null>;            // Chi tiết dòng hàng dịch vụ / thuốc
   notes?: CreationOptional<string | null>;
   createdBy?: CreationOptional<number | null>;
   createdAt?: CreationOptional<Date>;
@@ -85,6 +89,16 @@ const Invoice = sequelize.define<InvoiceModel>('Invoice', {
     allowNull: false,
     defaultValue: 0.00,
   },
+  paidAmount: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
+  remainingAmount: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
   paymentMethod: {
     type: DataTypes.ENUM(...Object.values(PaymentMethod)),
     allowNull: true,
@@ -100,6 +114,14 @@ const Invoice = sequelize.define<InvoiceModel>('Invoice', {
   },
   momoTransId: {
     type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  transactionRef: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  items: {
+    type: DataTypes.JSON,
     allowNull: true,
   },
   notes: {

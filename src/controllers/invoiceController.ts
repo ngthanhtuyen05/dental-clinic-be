@@ -52,12 +52,11 @@ export const getInvoiceById = async (req: Request, res: Response, next: NextFunc
 export const payInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { paymentMethod } = req.body;
-    const invoice = await invoiceService.payInvoice(id, paymentMethod);
+    const invoice = await invoiceService.payInvoice(id, req.body);
 
     res.status(HttpStatus.OK).json({
       status: 'success',
-      message: 'Hóa đơn đã được ghi nhận thanh toán thành công',
+      message: invoice.status === 'paid' ? 'Hóa đơn đã được thanh toán đủ 100%' : 'Đã ghi nhận thanh toán thành công',
       data: invoice,
     });
   } catch (error) {
@@ -108,7 +107,8 @@ export const confirmMomoDemoPayment = async (req: Request, res: Response, next: 
 export const cancelInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const invoice = await invoiceService.cancelInvoice(id);
+    const { reason } = req.body || {};
+    const invoice = await invoiceService.cancelInvoice(id, reason);
 
     res.status(HttpStatus.OK).json({
       status: 'success',

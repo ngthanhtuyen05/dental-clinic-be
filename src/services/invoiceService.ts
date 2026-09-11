@@ -20,6 +20,11 @@ export const createInvoice = async (
     prescriptionId,
     totalAmount,
     discountAmount,
+    paidAmount,
+    paymentMethod,
+    transactionRef,
+    status: reqStatus,
+    items,
     notes,
   } = input;
 
@@ -34,6 +39,18 @@ export const createInvoice = async (
     }
   }
 
+  const finalPayable = Math.max(0, calculatedAmount - discount);
+  const initialPaid = Number(paidAmount) || 0;
+  let finalStatus = reqStatus || InvoiceStatus.UNPAID;
+  let remaining = Math.max(0, finalPayable - initialPaid);
+
+  if (initialPaid >= finalPayable && finalPayable > 0) {
+    finalStatus = InvoiceStatus.PAID;
+    remaining = 0;
+  } else if (initialPaid > 0) {
+    finalStatus = InvoiceStatus.PARTIAL_PAID;
+  }
+
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
   const code = `INV-${dateStr}-${randomHex}`;
@@ -46,7 +63,13 @@ export const createInvoice = async (
     prescriptionId: prescriptionId ? Number(prescriptionId) : null,
     totalAmount: calculatedAmount,
     discountAmount: discount,
-    status: InvoiceStatus.UNPAID,
+    paidAmount: initialPaid,
+    remainingAmount: remaining,
+    paymentMethod: paymentMethod || null,
+    status: finalStatus,
+    paidAt: finalStatus === InvoiceStatus.PAID ? new Date() : (initialPaid > 0 ? new Date() : null),
+    transactionRef: transactionRef || null,
+    items: items || null,
     notes: notes || null,
     createdBy: creatorId,
   } as any);
@@ -77,7 +100,12 @@ export const getInvoiceById = async (id: number | string): Promise<InvoiceModel>
 
 export const payInvoice = async (
   id: number | string,
-  paymentMethod: PaymentMethod
+  payData: {
+    paymentMethod: PaymentMethod;
+    amount?: number;
+    transactionRef?: string;
+    notes?: string;
+  } | PaymentMethod
 ): Promise<InvoiceModel> => {
   const invoice = await invoiceRepository.findRawById(id);
   if (!invoice) {
@@ -88,10 +116,41 @@ export const payInvoice = async (
     throw new AppError('Hóa đơn này đã được thanh toán từ trước', HttpStatus.BAD_REQUEST);
   }
 
+  const paymentMethod = typeof payData === 'string' ? payData : payData.paymentMethod;
+  const currentPaid = Number(invoice.paidAmount) || 0;
+  const totalGross = Number(invoice.totalAmount) || 0;
+  const discount = Number(invoice.discountAmount) || 0;
+  const finalPayable = Math.max(0, totalGross - discount);
+  const currentRemaining = invoice.remainingAmount !== undefined && invoice.remainingAmount !== null
+    ? Number(invoice.remainingAmount)
+    : Math.max(0, finalPayable - currentPaid);
+
+  const amountToPay = (typeof payData === 'object' && payData.amount !== undefined && payData.amount > 0)
+    ? Number(payData.amount)
+    : currentRemaining;
+
+  const newPaidAmount = Math.min(finalPayable, currentPaid + amountToPay);
+  const newRemainingAmount = Math.max(0, finalPayable - newPaidAmount);
+  const isFullyPaid = newRemainingAmount === 0 || newPaidAmount >= finalPayable;
+  const newStatus = isFullyPaid ? InvoiceStatus.PAID : InvoiceStatus.PARTIAL_PAID;
+
+  const transactionRef = typeof payData === 'object' ? payData.transactionRef : undefined;
+  const extraNotes = typeof payData === 'object' ? payData.notes : undefined;
+
+  let updatedNotes = invoice.notes || '';
+  if (extraNotes) {
+    const timeStr = new Date().toLocaleDateString('vi-VN');
+    updatedNotes = updatedNotes ? `${updatedNotes}\n[${timeStr} Thu ${amountToPay.toLocaleString('vi-VN')}đ]: ${extraNotes}` : `[${timeStr} Thu ${amountToPay.toLocaleString('vi-VN')}đ]: ${extraNotes}`;
+  }
+
   await invoiceRepository.update(invoice, {
-    status: InvoiceStatus.PAID,
+    status: newStatus,
     paymentMethod,
+    paidAmount: newPaidAmount,
+    remainingAmount: newRemainingAmount,
     paidAt: new Date(),
+    transactionRef: transactionRef || invoice.transactionRef || null,
+    notes: updatedNotes || null,
   });
 
   const fullInvoice = await invoiceRepository.findById(invoice.id);
@@ -177,7 +236,7 @@ export const confirmMomoDemoPayment = async (id: number | string): Promise<void>
   }
 };
 
-export const cancelInvoice = async (id: number | string): Promise<InvoiceModel> => {
+export const cancelInvoice = async (id: number | string, reason?: string): Promise<InvoiceModel> => {
   const invoice = await invoiceRepository.findRawById(id);
   if (!invoice) {
     throw new AppError('Không tìm thấy hóa đơn', HttpStatus.NOT_FOUND);
@@ -187,8 +246,14 @@ export const cancelInvoice = async (id: number | string): Promise<InvoiceModel> 
     throw new AppError('Không thể hủy hóa đơn đã thanh toán', HttpStatus.BAD_REQUEST);
   }
 
+  let updatedNotes = invoice.notes || '';
+  if (reason) {
+    updatedNotes = updatedNotes ? `${updatedNotes}\n[Lý do hủy]: ${reason}` : `[Lý do hủy]: ${reason}`;
+  }
+
   await invoiceRepository.update(invoice, {
     status: InvoiceStatus.CANCELLED,
+    notes: updatedNotes || null,
   });
 
   return invoice;

@@ -7,6 +7,7 @@ import * as m004 from './migrations/004_add_doctor_profile_fields.js';
 import * as m005 from './migrations/005_add_performance_indexes.js';
 import * as m006 from './migrations/006_add_selling_price_to_products.js';
 import * as m007 from './migrations/007_add_unit_conversion_to_products.js';
+import * as m008 from './migrations/008_enhance_invoices_cashier_flow.js';
 
 export interface MigrationModule {
   name: string;
@@ -22,6 +23,7 @@ export const registeredMigrations: MigrationModule[] = [
   m005,
   m006,
   m007,
+  m008,
 ];
 
 

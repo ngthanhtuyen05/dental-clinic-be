@@ -1,4 +1,14 @@
-import { Invoice, PatientProfile, Appointment, TreatmentHistory, Prescription, User } from '../models/index.js';
+import {
+  Invoice,
+  PatientProfile,
+  Appointment,
+  TreatmentHistory,
+  Prescription,
+  User,
+  Service,
+  PrescriptionItem,
+  Product,
+} from '../models/index.js';
 import type { InvoiceModel } from '../models/invoiceModel.js';
 import type { CreationAttributes, Transaction, WhereOptions } from 'sequelize';
 
@@ -17,9 +27,23 @@ export class InvoiceRepository {
           as: 'patientProfile',
           include: [{ model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'phone'] }],
         },
-        { model: Appointment, as: 'appointment' },
+        {
+          model: Appointment,
+          as: 'appointment',
+          include: [{ model: Service, as: 'service' }],
+        },
         { model: TreatmentHistory, as: 'treatmentHistory' },
-        { model: Prescription, as: 'prescription' },
+        {
+          model: Prescription,
+          as: 'prescription',
+          include: [
+            {
+              model: PrescriptionItem,
+              as: 'items',
+              include: [{ model: Product, as: 'product' }],
+            },
+          ],
+        },
         { model: User, as: 'creator', attributes: ['id', 'fullName', 'email'] },
       ],
     });
@@ -42,7 +66,11 @@ export class InvoiceRepository {
           as: 'patientProfile',
           include: [{ model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'phone'] }],
         },
-        { model: Appointment, as: 'appointment' },
+        {
+          model: Appointment,
+          as: 'appointment',
+          include: [{ model: Service, as: 'service' }],
+        },
         { model: TreatmentHistory, as: 'treatmentHistory' },
         { model: Prescription, as: 'prescription' },
       ],

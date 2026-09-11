@@ -100,6 +100,7 @@ export enum MealRelation {
 
 export enum InvoiceStatus {
   UNPAID = 'unpaid',
+  PARTIAL_PAID = 'partial_paid',
   PAID = 'paid',
   CANCELLED = 'cancelled',
 }
@@ -107,6 +108,7 @@ export enum InvoiceStatus {
 export enum PaymentMethod {
   CASH = 'cash',
   BANK_TRANSFER = 'bank_transfer',
+  POS_CARD = 'pos_card',
   MOMO = 'momo',
 }
 
