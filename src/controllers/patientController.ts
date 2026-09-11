@@ -29,6 +29,7 @@ export const getPatients = async (req: Request, res: Response, next: NextFunctio
         total: result.total,
         totalPages: result.totalPages,
       },
+      summary: result.summary,
     });
   } catch (error) {
     next(error);

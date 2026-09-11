@@ -55,6 +55,12 @@ export interface PaginatedPatientsDto {
   page: number;
   limit: number;
   totalPages: number;
+  summary?: {
+    total: number;
+    activeCount: number;
+    inactiveCount: number;
+    recentVisitCount: number;
+  };
 }
 
 // Response DTO

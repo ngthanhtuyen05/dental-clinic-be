@@ -18,19 +18,23 @@ export const getAllPatients = async (query: PatientQueryDto): Promise<PaginatedP
   const searchWhere = patientRepository.buildSearchWhere(query.keyword);
   const profileWhere = patientRepository.buildStatusWhere(query.status);
 
-  const { rows, count } = await patientRepository.findAndCount({
-    where: searchWhere,
-    profileWhere,
-    limit,
-    offset,
-  });
+  const [findResult, summary] = await Promise.all([
+    patientRepository.findAndCount({
+      where: searchWhere,
+      profileWhere,
+      limit,
+      offset,
+    }),
+    patientRepository.getClinicMetrics(),
+  ]);
 
   return {
-    patients: rows,
-    total: count,
+    patients: findResult.rows,
+    total: findResult.count,
     page,
     limit,
-    totalPages: Math.ceil(count / limit),
+    totalPages: Math.ceil(findResult.count / limit),
+    summary,
   };
 };
 
@@ -51,8 +55,15 @@ export const createNewPatient = async (data: CreatePatientRequestDto) => {
     dentalHistory, chiefComplaint,
   } = data;
 
+  // Validate required email
+  if (!email || !email.trim()) {
+    throw new AppError('Email là bắt buộc.', 400);
+  }
+
+  const finalEmail = email.trim();
+
   // Check email uniqueness
-  const existingUser = await userRepository.findByEmail(email);
+  const existingUser = await userRepository.findByEmail(finalEmail);
   if (existingUser) {
     throw new AppError('Email đã được sử dụng bởi một tài khoản khác.', 400);
   }
@@ -64,7 +75,7 @@ export const createNewPatient = async (data: CreatePatientRequestDto) => {
   const result = await sequelize.transaction(async (t) => {
     const user = await userRepository.create({
       fullName,
-      email,
+      email: finalEmail,
       password: hashedPassword,
       phone,
       role: UserRole.PATIENT,

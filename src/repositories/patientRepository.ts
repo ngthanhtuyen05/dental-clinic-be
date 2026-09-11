@@ -64,19 +64,59 @@ export class PatientRepository {
 
   buildSearchWhere(keyword?: string): WhereOptions | undefined {
     if (!keyword?.trim()) return undefined;
-    const kw = `%${keyword.trim()}%`;
+    const trimmed = keyword.trim();
+    const kw = `%${trimmed}%`;
+    const cleanId = trimmed.replace(/^BN0*/i, '');
+    const numId = parseInt(cleanId, 10);
+
+    const orConditions: any[] = [
+      { fullName: { [Op.like]: kw } },
+      { email: { [Op.like]: kw } },
+      { phone: { [Op.like]: kw } },
+    ];
+
+    if (!isNaN(numId) && numId > 0) {
+      orConditions.push({ id: numId });
+    }
+
     return {
-      [Op.or]: [
-        { fullName: { [Op.like]: kw } },
-        { email: { [Op.like]: kw } },
-        { phone: { [Op.like]: kw } },
-      ],
+      [Op.or]: orConditions,
     } as any;
   }
 
   buildStatusWhere(status?: string): WhereOptions | undefined {
     if (!status || !Object.values(PatientStatus).includes(status as PatientStatus)) return undefined;
     return { status } as any;
+  }
+
+  async getClinicMetrics() {
+    const total = await User.count({ where: { role: UserRole.PATIENT } });
+    const activeCount = await PatientProfile.count({ where: { status: PatientStatus.ACTIVE } });
+    const inactiveCount = await PatientProfile.count({ where: { status: PatientStatus.INACTIVE } });
+
+    // Recent visits in the last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    let recentVisitCount = 0;
+    try {
+      recentVisitCount = await TreatmentHistory.count({
+        where: {
+          treatmentDate: {
+            [Op.gte]: thirtyDaysAgo,
+          },
+        },
+        distinct: true,
+        col: 'patientProfileId',
+      });
+    } catch {
+      recentVisitCount = 0;
+    }
+
+    return {
+      total,
+      activeCount,
+      inactiveCount,
+      recentVisitCount,
+    };
   }
 }
 
