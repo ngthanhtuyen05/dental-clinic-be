@@ -49,11 +49,15 @@ export class StockRepository {
     }));
   }
 
-  async findBatchById(batchId: number) {
-    return StockBatch.findByPk(batchId);
+  /**
+   * `transaction` truyền vào sẽ khóa dòng (SELECT ... FOR UPDATE) để tránh race condition
+   * khi 2 giao dịch cùng đọc rồi cùng trừ tồn kho của cùng 1 lô (oversell).
+   */
+  async findBatchById(batchId: number, transaction?: any) {
+    return StockBatch.findByPk(batchId, transaction ? { transaction, lock: transaction.LOCK.UPDATE } : undefined);
   }
 
-  async findBatchesByProduct(productId: number, onlyAvailable = true) {
+  async findBatchesByProduct(productId: number, onlyAvailable = true, transaction?: any) {
     const where: any = { productId };
     if (onlyAvailable) {
       where.currentQty = { [Op.gt]: 0 };
@@ -64,6 +68,7 @@ export class StockRepository {
         ['expiryDate', 'ASC'],
         ['id', 'ASC'],
       ],
+      ...(transaction ? { transaction, lock: transaction.LOCK.UPDATE } : {}),
     });
   }
 

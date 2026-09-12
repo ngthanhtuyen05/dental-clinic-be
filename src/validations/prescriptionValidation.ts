@@ -25,7 +25,11 @@ const basePrescriptionBodySchema = z.object({
   treatmentHistoryId: z.number().int().positive().nullable().optional(),
   diagnosis: z.string({ message: 'Chẩn đoán là bắt buộc' }).min(1, 'Chẩn đoán là bắt buộc').max(500),
   notes: z.string().max(1000).nullable().optional(),
-  status: z.nativeEnum(PrescriptionStatus).optional(),
+  // Đơn thuốc mới tạo chỉ có thể ở trạng thái nháp hoặc xác nhận ngay — không cho tạo thẳng
+  // ở trạng thái CANCELLED (đơn chưa từng "sống" thì không có gì để hủy).
+  status: z.enum([PrescriptionStatus.DRAFT, PrescriptionStatus.CONFIRMED], {
+    message: 'Trạng thái khi tạo đơn chỉ có thể là draft hoặc confirmed',
+  }).optional(),
   items: z.array(prescriptionItemSchema).min(1, 'Đơn thuốc phải có ít nhất 1 loại thuốc'),
 });
 

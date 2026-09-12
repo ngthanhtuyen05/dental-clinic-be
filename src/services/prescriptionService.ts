@@ -34,7 +34,7 @@ const consumePrescriptionStock = async (
   }
 
   for (const [productId, quantity] of quantityByProduct.entries()) {
-    const batches = await stockRepository.findBatchesByProduct(productId, true);
+    const batches = await stockRepository.findBatchesByProduct(productId, true, transaction);
     const totalStock = batches.reduce((sum, b) => sum + b.currentQty, 0);
 
     if (totalStock < quantity) {
@@ -79,7 +79,7 @@ const restockPrescriptionStock = async (
 
   for (const { batchId, productId, totalQuantity } of consumed) {
     if (!batchId || totalQuantity <= 0) continue;
-    const batch = await stockRepository.findBatchById(batchId);
+    const batch = await stockRepository.findBatchById(batchId, transaction);
     if (!batch) continue;
 
     await batch.increment('currentQty', { by: totalQuantity, transaction });
@@ -310,6 +310,13 @@ export const createPrescription = async (data: {
 
   if (!targetProfileId || isNaN(targetProfileId)) {
     throw new AppError('Hồ sơ bệnh nhân không hợp lệ', HttpStatus.BAD_REQUEST);
+  }
+
+  // Xác nhận hồ sơ thực sự tồn tại sau khi resolve — tránh rơi thẳng xuống insert và
+  // ném lỗi ràng buộc khóa ngoại thô ở tầng DB khi id không khớp bệnh nhân nào.
+  const targetProfile = await PatientProfile.findByPk(targetProfileId);
+  if (!targetProfile) {
+    throw new AppError('Không tìm thấy hồ sơ bệnh nhân', HttpStatus.NOT_FOUND);
   }
 
   if (!data.items || data.items.length === 0) {

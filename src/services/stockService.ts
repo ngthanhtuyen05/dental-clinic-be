@@ -150,7 +150,7 @@ export const consumeStock = async (params: ConsumeStockParams) => {
 
       if (item.batchId) {
         // Chỉ định lô cụ thể
-        const batch = await stockRepository.findBatchById(item.batchId);
+        const batch = await stockRepository.findBatchById(item.batchId, transaction);
         if (!batch || batch.productId !== item.productId) {
           throw new AppError(`Lô hàng #${item.batchId} không hợp lệ cho sản phẩm này`, HttpStatus.BAD_REQUEST);
         }
@@ -175,7 +175,7 @@ export const consumeStock = async (params: ConsumeStockParams) => {
         createdTransactions.push(tx);
       } else {
         // Tự động phân bổ FEFO / FIFO (lô hết hạn trước, nhập trước trừ trước)
-        const batches = await stockRepository.findBatchesByProduct(item.productId, true);
+        const batches = await stockRepository.findBatchesByProduct(item.productId, true, transaction);
         const totalStock = batches.reduce((sum, b) => sum + b.currentQty, 0);
 
         if (totalStock < item.quantity) {
@@ -255,7 +255,7 @@ export const adjustStock = async (params: AdjustStockParams) => {
     if (diff < 0) {
       // Thâm hụt (giảm kho)
       const deductQty = Math.abs(diff);
-      const batches = await stockRepository.findBatchesByProduct(productId, true);
+      const batches = await stockRepository.findBatchesByProduct(productId, true, transaction);
 
       let remaining = deductQty;
       for (const batch of batches) {
@@ -277,7 +277,7 @@ export const adjustStock = async (params: AdjustStockParams) => {
     } else {
       // Dư thừa (tăng kho)
       const addQty = diff;
-      const batches = await stockRepository.findBatchesByProduct(productId, false);
+      const batches = await stockRepository.findBatchesByProduct(productId, false, transaction);
       let targetBatch = batches.length > 0 ? batches[batches.length - 1] : null;
 
       if (targetBatch) {
