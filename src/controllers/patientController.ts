@@ -155,7 +155,10 @@ export const getPatientPrescriptions = async (req: Request, res: Response, next:
 export const createPatientPrescription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const profileId = await patientService.resolvePatientProfileId(req.params.id as string);
-    const dentistId = (req as any).user?.id || req.body.dentistId || 1;
+    const dentistId = (req as any).user?.id;
+    if (!dentistId) {
+      throw new AppError('Không xác định được bác sĩ kê đơn (yêu cầu đăng nhập)', HttpStatus.UNAUTHORIZED);
+    }
 
     const prescription = await prescriptionService.createPrescription({
       ...req.body,

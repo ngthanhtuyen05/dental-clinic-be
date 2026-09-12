@@ -24,9 +24,29 @@ export class StockRepository {
     type: string;
     quantity: number;
     performedBy: number;
+    prescriptionId?: number | null;
     reason?: string | null;
   }, transaction?: any) {
     return StockTransaction.create(data as any, { transaction });
+  }
+
+  /**
+   * Tổng số lượng đã xuất kho (TREATMENT) cho 1 đơn thuốc, gộp theo batchId —
+   * dùng để hoàn kho chính xác từng lô khi đơn thuốc CONFIRMED bị hủy.
+   */
+  async getConsumedByPrescription(prescriptionId: number, transaction?: any): Promise<Array<{ batchId: number | null; productId: number; totalQuantity: number }>> {
+    const rows = await StockTransaction.findAll({
+      where: { prescriptionId, type: StockTransactionType.TREATMENT },
+      attributes: ['batchId', 'productId', [fn('SUM', col('quantity')), 'totalQuantity']],
+      group: ['batchId', 'productId'],
+      raw: true,
+      transaction,
+    }) as any[];
+    return rows.map((r) => ({
+      batchId: r.batchId,
+      productId: r.productId,
+      totalQuantity: parseInt(r.totalQuantity, 10),
+    }));
   }
 
   async findBatchById(batchId: number) {

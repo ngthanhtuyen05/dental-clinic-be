@@ -10,6 +10,7 @@ export interface StockTransactionModel extends Model<InferAttributes<StockTransa
   quantity: number;
   performedBy: number;
   treatmentHistoryId: CreationOptional<number | null>;
+  prescriptionId: CreationOptional<number | null>;
   reason: CreationOptional<string | null>;
   createdAt?: CreationOptional<Date>;
   updatedAt?: CreationOptional<Date>;
@@ -47,6 +48,11 @@ const StockTransaction = sequelize.define<StockTransactionModel>('StockTransacti
   treatmentHistoryId: {
     type: DataTypes.INTEGER,
     allowNull: true,
+  },
+  prescriptionId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'Prescriptions', key: 'id' },
   },
   reason: {
     type: DataTypes.TEXT,

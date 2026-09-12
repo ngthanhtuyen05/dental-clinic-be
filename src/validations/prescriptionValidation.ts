@@ -18,20 +18,29 @@ const prescriptionItemSchema = z.object({
   warnings: z.string().max(500).nullable().optional(),
 });
 
+// Phần thân dùng chung cho cả 2 route tạo đơn (POST /prescriptions và POST /patients/:id/prescriptions)
+const basePrescriptionBodySchema = z.object({
+  appointmentId: z.number().int().positive().nullable().optional(),
+  treatmentHistoryId: z.number().int().positive().nullable().optional(),
+  diagnosis: z.string({ message: 'Chẩn đoán là bắt buộc' }).min(1, 'Chẩn đoán là bắt buộc').max(500),
+  notes: z.string().max(1000).nullable().optional(),
+  status: z.nativeEnum(PrescriptionStatus).optional(),
+  items: z.array(prescriptionItemSchema).min(1, 'Đơn thuốc phải có ít nhất 1 loại thuốc'),
+});
+
 export const createPrescriptionSchema = z.object({
-  body: z.object({
+  body: basePrescriptionBodySchema.extend({
     patientProfileId: z
       .union([z.number(), z.string()])
       .refine((v) => v !== undefined && v !== null && String(v).trim() !== '', {
         message: 'patientProfileId là bắt buộc',
       }),
-    appointmentId: z.number().int().positive().nullable().optional(),
-    treatmentHistoryId: z.number().int().positive().nullable().optional(),
-    diagnosis: z.string({ message: 'Chẩn đoán là bắt buộc' }).min(1, 'Chẩn đoán là bắt buộc').max(500),
-    notes: z.string().max(1000).nullable().optional(),
-    status: z.nativeEnum(PrescriptionStatus).optional(),
-    items: z.array(prescriptionItemSchema).min(1, 'Đơn thuốc phải có ít nhất 1 loại thuốc'),
   }),
+});
+
+// Route lồng trong /patients/:id/prescriptions lấy patientProfileId từ URL param, không cần trong body
+export const createPatientPrescriptionSchema = z.object({
+  body: basePrescriptionBodySchema,
 });
 
 export const updatePrescriptionStatusSchema = z.object({

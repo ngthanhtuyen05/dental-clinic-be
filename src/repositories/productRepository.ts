@@ -42,6 +42,11 @@ export class ProductRepository {
     });
   }
 
+  async findByIds(ids: number[]) {
+    if (ids.length === 0) return [];
+    return Product.findAll({ where: { id: { [Op.in]: ids } } });
+  }
+
   async findByNameInCategory(name: string, category: InventoryCategory) {
     return Product.findOne({ where: { name, category } });
   }

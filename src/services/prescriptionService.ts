@@ -21,6 +21,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<PrescriptionStatus, PrescriptionStatus[
  * toàn bộ (không tạo/không xác nhận đơn với thuốc không thể cấp phát được).
  */
 const consumePrescriptionStock = async (
+  prescriptionId: number,
   items: Array<{ productId: number; totalQuantity: number }>,
   performedBy: number,
   transaction: any,
@@ -55,10 +56,42 @@ const consumePrescriptionStock = async (
         type: StockTransactionType.TREATMENT,
         quantity: take,
         performedBy,
+        prescriptionId,
         reason: `${reason} (Lô ${batch.batchNumber})`,
       }, transaction);
       remaining -= take;
     }
+  }
+};
+
+/**
+ * Hoàn lại tồn kho đã trừ cho 1 đơn thuốc khi đơn CONFIRMED bị hủy — trả đúng số lượng
+ * về đúng lô đã xuất trước đó (dựa trên các StockTransaction loại TREATMENT đã ghi nhận
+ * khi cấp phát), ghi nhận 1 giao dịch ADJUSTMENT hoàn kho tương ứng.
+ */
+const restockPrescriptionStock = async (
+  prescriptionId: number,
+  performedBy: number,
+  transaction: any,
+  reason: string,
+) => {
+  const consumed = await stockRepository.getConsumedByPrescription(prescriptionId, transaction);
+
+  for (const { batchId, productId, totalQuantity } of consumed) {
+    if (!batchId || totalQuantity <= 0) continue;
+    const batch = await stockRepository.findBatchById(batchId);
+    if (!batch) continue;
+
+    await batch.increment('currentQty', { by: totalQuantity, transaction });
+    await stockRepository.createTransaction({
+      productId,
+      batchId,
+      type: StockTransactionType.ADJUSTMENT,
+      quantity: totalQuantity,
+      performedBy,
+      prescriptionId,
+      reason: `${reason} (Lô ${batch.batchNumber})`,
+    }, transaction);
   }
 };
 
@@ -284,19 +317,20 @@ export const createPrescription = async (data: {
   }
 
   // Validate sản phẩm tồn tại, đang active, và không kê trùng thuốc trong cùng 1 đơn
-  const seenProductIds = new Set<number>();
-  for (const item of data.items) {
-    if (seenProductIds.has(item.productId)) {
-      const product = await productRepository.findById(item.productId);
-      throw new AppError(`Thuốc "${product?.name || item.productId}" bị kê trùng nhiều dòng trong cùng đơn`, HttpStatus.BAD_REQUEST);
-    }
-    seenProductIds.add(item.productId);
+  // (1 query duy nhất thay vì gọi findById cho từng dòng, tránh N+1 khi đơn có nhiều thuốc)
+  const uniqueProductIds = [...new Set(data.items.map((item) => item.productId))];
+  if (uniqueProductIds.length !== data.items.length) {
+    throw new AppError('Đơn thuốc bị kê trùng thuốc ở nhiều dòng khác nhau', HttpStatus.BAD_REQUEST);
+  }
 
-    const product = await productRepository.findById(item.productId);
+  const products = await productRepository.findByIds(uniqueProductIds);
+  const productById = new Map(products.map((p: any) => [p.id, p]));
+  for (const productId of uniqueProductIds) {
+    const product = productById.get(productId);
     if (!product) {
-      throw new AppError(`Thuốc với ID ${item.productId} không tồn tại`, HttpStatus.NOT_FOUND);
+      throw new AppError(`Thuốc với ID ${productId} không tồn tại`, HttpStatus.NOT_FOUND);
     }
-    if (!(product as any).isActive) {
+    if (!product.isActive) {
       throw new AppError(`Thuốc "${product.name}" đã ngừng kinh doanh, không thể kê đơn`, HttpStatus.BAD_REQUEST);
     }
   }
@@ -345,6 +379,7 @@ export const createPrescription = async (data: {
     // Đơn ở trạng thái CONFIRMED nghĩa là thuốc được cấp phát ngay -> trừ kho luôn
     if (status === PrescriptionStatus.CONFIRMED) {
       await consumePrescriptionStock(
+        prescription.id,
         itemsToCreate.map((i) => ({ productId: i.productId, totalQuantity: i.totalQuantity })),
         data.dentistId,
         t,
@@ -382,7 +417,12 @@ export const updatePrescriptionStatus = async (id: number, status: PrescriptionS
     // Xác nhận đơn nháp -> cấp phát thuốc, cần trừ kho tại thời điểm này
     if (currentStatus === PrescriptionStatus.DRAFT && status === PrescriptionStatus.CONFIRMED) {
       const items = ((prescription as any).items || []) as Array<{ productId: number; totalQuantity: number }>;
-      await consumePrescriptionStock(items, performedBy, t, `Cấp phát theo đơn thuốc ${prescription.code}`);
+      await consumePrescriptionStock(prescription.id, items, performedBy, t, `Cấp phát theo đơn thuốc ${prescription.code}`);
+    }
+
+    // Hủy đơn đã xác nhận (đã trừ kho) -> hoàn lại đúng số lượng/lô đã cấp phát
+    if (currentStatus === PrescriptionStatus.CONFIRMED && status === PrescriptionStatus.CANCELLED) {
+      await restockPrescriptionStock(prescription.id, performedBy, t, `Hoàn kho do hủy đơn thuốc ${prescription.code}`);
     }
 
     prescription.status = status;

@@ -18,6 +18,7 @@ import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
 import { validate } from '../middlewares/validate.js';
 import { createPatientSchema, updatePatientSchema, updateOdontogramSchema } from '../validations/patientValidation.js';
+import { createPatientPrescriptionSchema } from '../validations/prescriptionValidation.js';
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.route('/')
 
 router.route('/:id/prescriptions')
   .get(checkPermission('prescriptions.view'), getPatientPrescriptions)
-  .post(checkPermission('prescriptions.create'), createPatientPrescription);
+  .post(checkPermission('prescriptions.create'), validate(createPatientPrescriptionSchema), createPatientPrescription);
 
 router.route('/:id/visits')
   .get(checkPermission('patients.view'), getPatientVisits);
