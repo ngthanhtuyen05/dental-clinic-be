@@ -7,6 +7,7 @@ const prescriptionItemSchema = z.object({
   dosageText: z.string({ message: 'Cách dùng là bắt buộc' }).min(1, 'Cách dùng là bắt buộc').max(500),
   quantityPerDose: z
     .number({ message: 'Số lượng mỗi lần dùng là bắt buộc' })
+    .int('Số lượng mỗi lần dùng phải là số nguyên (hệ thống chưa hỗ trợ đơn vị lẻ như 1/2 viên)')
     .positive('Số lượng mỗi lần dùng phải lớn hơn 0'),
   frequency: z.nativeEnum(DosageFrequency, { message: 'Tần suất dùng không hợp lệ' }),
   durationDays: z
