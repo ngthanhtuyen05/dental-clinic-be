@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { appointmentRepository } from '../repositories/appointmentRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { serviceRepository } from '../repositories/serviceRepository.js';
-import { AppointmentStatus, AppointmentType, UserRole, PatientStatus } from '../constants/enums.js';
+import { Prescription } from '../models/index.js';
+import { AppointmentStatus, AppointmentType, UserRole, PatientStatus, PrescriptionStatus } from '../constants/enums.js';
 import type {
   CreateAppointmentRequestDto,
   UpdateAppointmentRequestDto,
@@ -385,6 +386,21 @@ export const updateAppointmentStatus = async (id: number, status: AppointmentSta
   const allowed = allowedTransitions[currentStatus as AppointmentStatus];
   if (!allowed || !allowed.includes(status)) {
     throw new AppError(`Không thể chuyển đổi trạng thái từ ${currentStatus} sang ${status}.`, 400);
+  }
+
+  // Không cho hủy lịch hẹn nếu đã có đơn thuốc CONFIRMED (đã cấp phát/trừ kho) gắn với nó —
+  // việc hoàn kho phải là thao tác tường minh (hủy đơn thuốc riêng, có lý do) chứ không tự
+  // động ngầm theo hành động hủy lịch hẹn.
+  if (status === AppointmentStatus.CANCELLED) {
+    const dispensedPrescription = await Prescription.findOne({
+      where: { appointmentId: id, status: PrescriptionStatus.CONFIRMED },
+    });
+    if (dispensedPrescription) {
+      throw new AppError(
+        `Lịch hẹn này đang có đơn thuốc ${dispensedPrescription.code} đã cấp phát. Vui lòng hủy đơn thuốc trước (thao tác này sẽ hoàn kho) rồi mới hủy lịch hẹn.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   const updateFields: any = { status };
