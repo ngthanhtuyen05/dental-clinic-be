@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { Op } from 'sequelize';
 import sequelize from '../config/db.js';
-import { Prescription, PrescriptionItem, PatientProfile, User, Product } from '../models/index.js';
-import { PrescriptionStatus, StockTransactionType, FREQUENCY_MULTIPLIER, type DosageFrequency } from '../constants/enums.js';
+import { Prescription, PrescriptionItem, PatientProfile, User, Product, Appointment } from '../models/index.js';
+import { PrescriptionStatus, StockTransactionType, FREQUENCY_MULTIPLIER, AppointmentStatus, type DosageFrequency } from '../constants/enums.js';
 import { productRepository } from '../repositories/productRepository.js';
 import { stockRepository } from '../repositories/stockRepository.js';
 import AppError from '../utils/AppError.js';
@@ -314,6 +314,23 @@ export const createPrescription = async (data: {
 
   if (!data.items || data.items.length === 0) {
     throw new AppError('Đơn thuốc phải có ít nhất 1 loại thuốc', HttpStatus.BAD_REQUEST);
+  }
+
+  // Chỉ cho phép gắn đơn thuốc với lịch hẹn đang khám hoặc đã khám xong — khớp với
+  // ràng buộc phía FE (nút "Kê đơn thuốc" chỉ hiện khi IN_PROGRESS/COMPLETED), tránh
+  // trường hợp kê đơn qua route/API trực tiếp cho lịch hẹn chưa diễn ra hoặc đã hủy.
+  if (data.appointmentId) {
+    const appointment = await Appointment.findByPk(data.appointmentId);
+    if (!appointment) {
+      throw new AppError('Lịch hẹn liên kết không tồn tại', HttpStatus.NOT_FOUND);
+    }
+    const allowedAppointmentStatuses = [AppointmentStatus.IN_PROGRESS, AppointmentStatus.COMPLETED];
+    if (!allowedAppointmentStatuses.includes(appointment.status)) {
+      throw new AppError(
+        'Chỉ có thể kê đơn thuốc cho lịch hẹn đang khám hoặc đã khám xong',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   // Validate sản phẩm tồn tại, đang active, và không kê trùng thuốc trong cùng 1 đơn
