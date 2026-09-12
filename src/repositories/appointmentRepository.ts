@@ -171,7 +171,12 @@ export class AppointmentRepository {
     return Appointment.count({ where });
   }
 
-  async findConflicting(dentistId: number, date: string, startTime: string, endTime: string, excludeId?: number): Promise<AppointmentModel[]> {
+  /**
+   * @param transaction Truyền vào để kiểm tra trùng lịch NGAY TRONG transaction tạo/đổi lịch
+   *   hẹn, kèm khóa dòng — nếu đọc ngoài transaction thì đây là check-then-act kinh điển:
+   *   hai yêu cầu đặt cùng khung giờ cùng lúc đều thấy "trống" rồi cùng ghi.
+   */
+  async findConflicting(dentistId: number, date: string, startTime: string, endTime: string, excludeId?: number, transaction?: Transaction): Promise<AppointmentModel[]> {
     const where: WhereOptions = {
       dentistId,
       appointmentDate: date,
@@ -196,7 +201,10 @@ export class AppointmentRepository {
       };
     }
 
-    return Appointment.findAll({ where });
+    return Appointment.findAll({
+      where,
+      ...(transaction ? { transaction, lock: transaction.LOCK.UPDATE } : {}),
+    });
   }
 
   async getLastCodeNumberForDate(dateStr: string): Promise<number> {

@@ -35,13 +35,22 @@ const consumePrescriptionStock = async (
   }
 
   for (const [productId, quantity] of quantityByProduct.entries()) {
-    const batches = await stockRepository.findBatchesByProduct(productId, true, transaction);
+    // excludeExpired: KHÔNG bao giờ cấp phát thuốc đã quá hạn cho bệnh nhân. Trước đây hàm này
+    // chỉ lọc currentQty > 0, mà thứ tự FEFO lại là expiryDate ASC nên lô quá hạn lâu nhất
+    // được ưu tiên xuất ĐẦU TIÊN.
+    const batches = await stockRepository.findBatchesByProduct(productId, true, transaction, true);
     const totalStock = batches.reduce((sum, b) => sum + b.currentQty, 0);
 
     if (totalStock < quantity) {
       const product = await productRepository.findById(productId);
+      // Phân biệt "hết hàng" với "chỉ còn hàng hết hạn" để người kê đơn biết đường xử lý.
+      const allBatches = await stockRepository.findBatchesByProduct(productId, true, transaction);
+      const expiredStock = allBatches.reduce((sum, b) => sum + b.currentQty, 0) - totalStock;
+      const suffix = expiredStock > 0
+        ? ` (còn ${expiredStock} đơn vị nhưng đã quá hạn sử dụng, không được cấp phát)`
+        : '';
       throw new AppError(
-        `Thuốc "${product?.name || productId}" không đủ tồn kho để cấp phát. Tồn hiện tại: ${totalStock}, yêu cầu: ${quantity}`,
+        `Thuốc "${product?.name || productId}" không đủ tồn kho để cấp phát. Tồn khả dụng: ${totalStock}, yêu cầu: ${quantity}${suffix}`,
         HttpStatus.BAD_REQUEST,
       );
     }

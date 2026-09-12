@@ -1,4 +1,4 @@
-import { fn, col, Op } from 'sequelize';
+import { fn, col, literal, Op } from 'sequelize';
 import { StockBatch, StockTransaction, Product, User } from '../models/index.js';
 import sequelize from '../config/db.js';
 import { StockTransactionType } from '../constants/enums.js';
@@ -58,14 +58,29 @@ export class StockRepository {
     return StockBatch.findByPk(batchId, transaction ? { transaction, lock: transaction.LOCK.UPDATE } : undefined);
   }
 
-  async findBatchesByProduct(productId: number, onlyAvailable = true, transaction?: any) {
+  /**
+   * @param excludeExpired Bỏ qua các lô đã quá hạn sử dụng. BẮT BUỘC bật khi xuất thuốc cho
+   *   bệnh nhân; để tắt cho các nghiệp vụ phải chạm tới lô hết hạn (hủy hàng, kiểm kê).
+   *
+   * Thứ tự FEFO: lô có hạn dùng gần nhất ra trước, lô KHÔNG khai hạn dùng xuống cuối. MySQL
+   * xếp NULL lên đầu khi ORDER BY ASC, nên trước đây lô không khai hạn luôn bị xuất trước cả
+   * lô sắp hết hạn — đúng chiều ngược lại của FEFO.
+   */
+  async findBatchesByProduct(productId: number, onlyAvailable = true, transaction?: any, excludeExpired = false) {
     const where: any = { productId };
     if (onlyAvailable) {
       where.currentQty = { [Op.gt]: 0 };
     }
+    if (excludeExpired) {
+      where[Op.or] = [
+        { expiryDate: null },
+        { expiryDate: { [Op.gte]: getClinicToday() } },
+      ];
+    }
     return StockBatch.findAll({
       where,
       order: [
+        [literal('`StockBatch`.`expiryDate` IS NULL'), 'ASC'],
         ['expiryDate', 'ASC'],
         ['id', 'ASC'],
       ],

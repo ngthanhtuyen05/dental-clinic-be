@@ -36,6 +36,18 @@ function generateAppointmentCode(dateStr: string): string {
   return `${prefix}${randomSeq}`;
 }
 
+/**
+ * Khóa "lịch làm việc" của một bác sĩ trong phạm vi transaction hiện tại.
+ *
+ * Không có ràng buộc UNIQUE nào diễn tả được "hai khoảng thời gian không được chồng nhau",
+ * nên ta serialize mọi thao tác đặt/dời lịch của CÙNG một bác sĩ bằng cách khóa dòng Users
+ * của bác sĩ đó. Giao dịch thứ hai sẽ nằm chờ ở đây cho tới khi giao dịch thứ nhất commit,
+ * rồi mới chạy kiểm tra trùng lịch — lúc đó đã nhìn thấy lịch hẹn vừa được tạo.
+ */
+const lockDentistSchedule = async (dentistId: number, transaction: any) => {
+  await User.findByPk(dentistId, { transaction, lock: transaction.LOCK.UPDATE });
+};
+
 export const getAllAppointments = async (params: AppointmentQueryParamsDto): Promise<PaginatedAppointmentsDto> => {
   const { page = 1, limit = 10, keyword, status, type, doctorId, patientId, dateFrom, dateTo, appointmentDate } = params;
   const offset = (page - 1) * limit;
@@ -111,6 +123,11 @@ export const createNewAppointment = async (
 
   if (patientId) {
     patient = await userRepository.findById(patientId);
+    // Trước đây patientId không tồn tại thì `patient` vẫn null và rơi xuống nhánh khách vãng
+    // lai bên dưới => lặng lẽ tạo ra một tài khoản "Khách Đặt Hẹn" mới thay vì báo lỗi.
+    if (!patient) {
+      throw new AppError('Bệnh nhân được chọn không tồn tại.', HttpStatus.BAD_REQUEST);
+    }
   } else if (phone || email) {
     if (phone) {
       patient = await User.findOne({ where: { phone } });
@@ -120,8 +137,11 @@ export const createNewAppointment = async (
     }
   }
 
-  // Nếu là người dùng vai trò bệnh nhân đã đăng ký, bắt buộc phải có hồ sơ bệnh án
-  if (patient && patient.role === UserRole.PATIENT) {
+  // Người đi khám bắt buộc phải có hồ sơ bệnh án — xét theo HỒ SƠ chứ không theo vai trò tài
+  // khoản: nhân viên phòng khám vẫn có thể tự đến khám (DB hiện có 1 bác sĩ mang hồ sơ bệnh
+  // nhân). Ngược lại, trước đây điều kiện `role === PATIENT` khiến tài khoản nhân viên không
+  // có hồ sơ nào vẫn đặt được lịch và lọt qua cả kiểm tra ngừng hoạt động.
+  if (patient) {
     const existingProfile = await PatientProfile.findOne({ where: { userId: patient.id } });
     if (!existingProfile) {
       throw new AppError('Vui lòng hoàn tất hồ sơ bệnh nhân trước khi đặt lịch hẹn.', 400);
@@ -142,9 +162,16 @@ export const createNewAppointment = async (
 
   if (!isNaN(numDentistId) && numDentistId > 0) {
     const dentist = await userRepository.findById(numDentistId);
-    if (dentist) {
-      dentistId = dentist.id;
+    // Chỉ tài khoản có vai trò bác sĩ mới được phân công khám. Trước đây chỉ kiểm tra tồn
+    // tại, nên truyền id của một bệnh nhân/lễ tân vào dentistId vẫn tạo được lịch hẹn với
+    // "bác sĩ phụ trách" là người đó.
+    if (!dentist) {
+      throw new AppError('Bác sĩ được chọn không tồn tại.', HttpStatus.BAD_REQUEST);
     }
+    if (dentist.role !== UserRole.DENTIST) {
+      throw new AppError('Tài khoản được chọn không phải bác sĩ nha khoa.', HttpStatus.BAD_REQUEST);
+    }
+    dentistId = dentist.id;
   }
 
   // Nếu chọn "Bác sĩ bất kỳ" hoặc ID không hợp lệ -> Tự động chọn Bác sĩ nha khoa sẵn có từ DB
@@ -170,16 +197,19 @@ export const createNewAppointment = async (
   // 4. Tự sinh mã code
   const code = generateAppointmentCode(appointmentDate);
 
-  // 5. Kiểm tra trùng lịch trước khi tạo
-  if (dentistId) {
-    const conflicts = await appointmentRepository.findConflicting(dentistId, appointmentDate, startTime, endTime);
+  // 5. Tạo lịch hẹn trong một Transaction nguyên tử: khóa lịch bác sĩ -> kiểm tra trùng ->
+  // ghi. Trước đây bước kiểm tra trùng nằm NGOÀI transaction nên hai yêu cầu đặt cùng khung
+  // giờ gửi lên cùng lúc đều thấy trống và đều tạo được lịch (double-booking).
+  const createdAppt = await sequelize.transaction(async (t) => {
+    await lockDentistSchedule(dentistId!, t);
+
+    const conflicts = await appointmentRepository.findConflicting(
+      dentistId!, appointmentDate, startTime, endTime, undefined, t,
+    );
     if (conflicts.length > 0) {
       throw new AppError('Bác sĩ đã có lịch hẹn khác trong khung giờ này. Vui lòng chọn khung giờ khác.', HttpStatus.BAD_REQUEST);
     }
-  }
 
-  // 6. Tạo lịch hẹn vào Database trong một Transaction nguyên tử
-  const createdAppt = await sequelize.transaction(async (t) => {
     let finalPatientId = patientId;
 
     // Nếu vẫn chưa có bệnh nhân (khách vãng lai lần đầu đặt lịch) -> Tự động tạo tài khoản và hồ sơ
@@ -301,6 +331,10 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
     const numPatientId = Number(data.patientId);
     const patient = await userRepository.findById(numPatientId);
     if (!patient) throw new AppError('Bệnh nhân không tồn tại.', 400);
+    const newPatientProfile = await PatientProfile.findOne({ where: { userId: numPatientId } });
+    if (!newPatientProfile) {
+      throw new AppError('Tài khoản được chọn chưa có hồ sơ bệnh án, không thể gán làm bệnh nhân của lịch hẹn.', HttpStatus.BAD_REQUEST);
+    }
     updateFields.patientId = numPatientId;
   }
 
@@ -342,23 +376,31 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
     const numDentistId = Number(data.dentistId);
     const dentist = await userRepository.findById(numDentistId);
     if (!dentist) throw new AppError('Bác sĩ không tồn tại.', 400);
+    if (dentist.role !== UserRole.DENTIST) {
+      throw new AppError('Tài khoản được chọn không phải bác sĩ nha khoa.', HttpStatus.BAD_REQUEST);
+    }
     dentistId = numDentistId;
     checkConflict = true;
   }
 
-  if (checkConflict) {
-    const duration = updateFields.durationMinutes || appt.durationMinutes;
-    const endTime = calculateEndTime(startTime, duration);
-    updateFields.endTime = endTime;
+  // Dời lịch cũng phải khóa + kiểm tra + ghi trong cùng một transaction, cùng lý do như khi tạo.
+  await sequelize.transaction(async (t) => {
+    if (checkConflict) {
+      await lockDentistSchedule(dentistId, t);
 
-    // Check trùng lịch ngoại trừ chính nó
-    const conflicts = await appointmentRepository.findConflicting(dentistId, dateStr, startTime, endTime, id);
-    if (conflicts.length > 0) {
-      throw new AppError('Bác sĩ đã có lịch hẹn khác trùng khớp với thời gian này.', 400);
+      const duration = updateFields.durationMinutes || appt.durationMinutes;
+      const endTime = calculateEndTime(startTime, duration);
+      updateFields.endTime = endTime;
+
+      // Check trùng lịch ngoại trừ chính nó
+      const conflicts = await appointmentRepository.findConflicting(dentistId, dateStr, startTime, endTime, id, t);
+      if (conflicts.length > 0) {
+        throw new AppError('Bác sĩ đã có lịch hẹn khác trùng khớp với thời gian này.', 400);
+      }
     }
-  }
 
-  await appointmentRepository.update(appt, updateFields);
+    await appointmentRepository.update(appt, updateFields, { transaction: t });
+  });
 
   return await appointmentRepository.findById(id);
 };
