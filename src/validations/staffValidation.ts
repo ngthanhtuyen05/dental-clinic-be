@@ -52,6 +52,12 @@ export const createStaffSchema = z.object({
   }),
 });
 
+export const updateStaffStatusSchema = z.object({
+  body: z.object({
+    status: z.nativeEnum(StaffStatus, { message: 'Trạng thái không hợp lệ' }),
+  }),
+});
+
 export const updateStaffSchema = z.object({
   body: z.object({
     fullName: z.string().min(1).max(100).optional(),

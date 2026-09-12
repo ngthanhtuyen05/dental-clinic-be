@@ -1,5 +1,5 @@
 import { staffRepository } from '../repositories/staffRepository.js';
-import { hashPassword } from '../utils/password.js';
+import { hashPassword, generateRandomPassword } from '../utils/password.js';
 import { User } from '../models/index.js';
 import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
@@ -187,19 +187,23 @@ export const resetPassword = async (id: number) => {
   const user = await User.findByPk(id);
   if (!user) throw new AppError('Không tìm thấy nhân viên', HttpStatus.NOT_FOUND);
 
-  const defaultPassword = await hashPassword('Dental@123');
-  await user.update({ password: defaultPassword });
-  return true;
+  const tempPassword = generateRandomPassword();
+  const hashed = await hashPassword(tempPassword);
+  await user.update({ password: hashed });
+  // Trả về mật khẩu tạm dạng plaintext đúng 1 lần để admin gửi cho nhân viên;
+  // không lưu lại plaintext ở đâu khác.
+  return tempPassword;
 };
 
-export const toggleStatus = async (id: number) => {
+/**
+ * Đặt trạng thái nhân viên một cách tuyệt đối (idempotent) thay vì đảo bit,
+ * tránh race condition khi có nhiều request cập nhật gần nhau.
+ */
+export const setStaffStatus = async (id: number, status: string) => {
   const staff = await staffRepository.findById(id);
   if (!staff) throw new AppError('Không tìm thấy nhân viên', HttpStatus.NOT_FOUND);
 
-  const currentStatus = (staff as any).staffProfile?.staffStatus || 'active';
-  const newStatus = currentStatus === 'active' ? 'resigned' : 'active';
-
-  const result = await staffRepository.updateWithProfile(id, {}, { staffStatus: newStatus });
+  const result = await staffRepository.updateWithProfile(id, {}, { staffStatus: status });
   if (!result) throw new AppError('Cập nhật thất bại', HttpStatus.INTERNAL_SERVER_ERROR);
   return result;
 };

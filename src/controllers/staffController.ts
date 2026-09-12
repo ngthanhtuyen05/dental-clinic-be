@@ -102,15 +102,16 @@ export const updateStaff = async (req: Request, res: Response, next: NextFunctio
 
 /**
  * PATCH /api/staff/:id/reset-password
- * Đặt lại mật khẩu nhân viên về Dental@123
+ * Đặt lại mật khẩu nhân viên bằng mật khẩu tạm ngẫu nhiên, trả về 1 lần cho admin.
  */
 export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    await staffService.resetPassword(id);
+    const tempPassword = await staffService.resetPassword(id);
     res.status(HttpStatus.OK).json({
       status: 'success',
-      message: 'Mật khẩu đã được đặt lại về mặc định',
+      message: 'Mật khẩu đã được đặt lại',
+      data: { tempPassword },
     });
   } catch (error) {
     next(error);
@@ -118,13 +119,14 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 };
 
 /**
- * PATCH /api/staff/:id/toggle-status
- * Chuyển đổi trạng thái active ↔ resigned
+ * PATCH /api/staff/:id/status
+ * Đặt trạng thái nhân viên (idempotent, không phải toggle) để tránh race condition.
  */
-export const toggleStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateStaffStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const staff = await staffService.toggleStatus(id);
+    const { status } = req.body;
+    const staff = await staffService.setStaffStatus(id, status);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: new StaffResponseDto(staff),
