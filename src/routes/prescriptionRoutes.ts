@@ -17,6 +17,8 @@ import {
 } from '../controllers/prescriptionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { checkPermission } from '../middlewares/permissionMiddleware.js';
+import { validate } from '../middlewares/validate.js';
+import { createPrescriptionSchema, updatePrescriptionStatusSchema } from '../validations/prescriptionValidation.js';
 
 const router = express.Router();
 
@@ -38,11 +40,11 @@ router.delete('/usage-guides/:id', checkPermission('prescriptions.templates'), d
 
 router.route('/')
   .get(checkPermission('prescriptions.view'), getPrescriptions)
-  .post(checkPermission('prescriptions.create'), createPrescription);
+  .post(checkPermission('prescriptions.create'), validate(createPrescriptionSchema), createPrescription);
 
 router.route('/:id')
   .get(checkPermission('prescriptions.view'), getPrescription);
 
-router.patch('/:id/status', checkPermission('prescriptions.edit'), updatePrescriptionStatus);
+router.patch('/:id/status', checkPermission('prescriptions.edit'), validate(updatePrescriptionStatusSchema), updatePrescriptionStatus);
 
 export default router;

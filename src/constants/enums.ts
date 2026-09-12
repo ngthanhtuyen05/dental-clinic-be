@@ -90,6 +90,18 @@ export enum DosageFrequency {
   AS_NEEDED = 'as_needed',
 }
 
+/** Số lần dùng thuốc/ngày theo tần suất — dùng để tính lại totalQuantity phía server (không tin số client gửi lên). */
+export const FREQUENCY_MULTIPLIER: Record<DosageFrequency, number> = {
+  [DosageFrequency.ONCE_DAILY]: 1,
+  [DosageFrequency.TWICE_DAILY]: 2,
+  [DosageFrequency.THREE_TIMES_DAILY]: 3,
+  [DosageFrequency.FOUR_TIMES_DAILY]: 4,
+  [DosageFrequency.EVERY_6_HOURS]: 4,
+  [DosageFrequency.EVERY_8_HOURS]: 3,
+  [DosageFrequency.EVERY_12_HOURS]: 2,
+  [DosageFrequency.AS_NEEDED]: 3,
+};
+
 export enum MealRelation {
   BEFORE_MEAL = 'before_meal',
   AFTER_MEAL = 'after_meal',

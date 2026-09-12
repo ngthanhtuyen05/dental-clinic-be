@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as prescriptionService from '../services/prescriptionService.js';
+import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
 
 export const getPrescriptions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -40,7 +41,10 @@ export const getPrescription = async (req: Request, res: Response, next: NextFun
 
 export const createPrescription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const dentistId = (req as any).user?.id || req.body.dentistId || 1;
+    const dentistId = (req as any).user?.id;
+    if (!dentistId) {
+      throw new AppError('Không xác định được bác sĩ kê đơn (yêu cầu đăng nhập)', HttpStatus.UNAUTHORIZED);
+    }
     const prescription = await prescriptionService.createPrescription({
       ...req.body,
       dentistId,
@@ -58,7 +62,11 @@ export const updatePrescriptionStatus = async (req: Request, res: Response, next
   try {
     const id = Number(req.params.id);
     const { status } = req.body;
-    const updated = await prescriptionService.updatePrescriptionStatus(id, status);
+    const performedBy = (req as any).user?.id;
+    if (!performedBy) {
+      throw new AppError('Không xác định được người thực hiện (yêu cầu đăng nhập)', HttpStatus.UNAUTHORIZED);
+    }
+    const updated = await prescriptionService.updatePrescriptionStatus(id, status, performedBy);
     res.status(HttpStatus.OK).json({
       status: 'success',
       data: updated,

@@ -2,9 +2,65 @@ import crypto from 'crypto';
 import { Op } from 'sequelize';
 import sequelize from '../config/db.js';
 import { Prescription, PrescriptionItem, PatientProfile, User, Product } from '../models/index.js';
-import { PrescriptionStatus } from '../constants/enums.js';
+import { PrescriptionStatus, StockTransactionType, FREQUENCY_MULTIPLIER, type DosageFrequency } from '../constants/enums.js';
+import { productRepository } from '../repositories/productRepository.js';
+import { stockRepository } from '../repositories/stockRepository.js';
 import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
+
+/** Các trạng thái đơn thuốc được phép chuyển tới từ mỗi trạng thái hiện tại. */
+const ALLOWED_STATUS_TRANSITIONS: Record<PrescriptionStatus, PrescriptionStatus[]> = {
+  [PrescriptionStatus.DRAFT]: [PrescriptionStatus.CONFIRMED, PrescriptionStatus.CANCELLED],
+  [PrescriptionStatus.CONFIRMED]: [PrescriptionStatus.CANCELLED],
+  [PrescriptionStatus.CANCELLED]: [],
+};
+
+/**
+ * Xuất kho thuốc theo FEFO (lô cận date/nhập trước xuất trước) cho các item của đơn thuốc,
+ * trong cùng 1 transaction với thao tác tạo/xác nhận đơn — nếu không đủ tồn kho sẽ rollback
+ * toàn bộ (không tạo/không xác nhận đơn với thuốc không thể cấp phát được).
+ */
+const consumePrescriptionStock = async (
+  items: Array<{ productId: number; totalQuantity: number }>,
+  performedBy: number,
+  transaction: any,
+  reason: string,
+) => {
+  // Gộp số lượng theo sản phẩm (phòng trường hợp 1 đơn kê trùng 1 thuốc ở nhiều dòng)
+  const quantityByProduct = new Map<number, number>();
+  for (const item of items) {
+    quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) || 0) + item.totalQuantity);
+  }
+
+  for (const [productId, quantity] of quantityByProduct.entries()) {
+    const batches = await stockRepository.findBatchesByProduct(productId, true);
+    const totalStock = batches.reduce((sum, b) => sum + b.currentQty, 0);
+
+    if (totalStock < quantity) {
+      const product = await productRepository.findById(productId);
+      throw new AppError(
+        `Thuốc "${product?.name || productId}" không đủ tồn kho để cấp phát. Tồn hiện tại: ${totalStock}, yêu cầu: ${quantity}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    let remaining = quantity;
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const take = Math.min(batch.currentQty, remaining);
+      await batch.decrement('currentQty', { by: take, transaction });
+      await stockRepository.createTransaction({
+        productId,
+        batchId: batch.id,
+        type: StockTransactionType.TREATMENT,
+        quantity: take,
+        performedBy,
+        reason: `${reason} (Lô ${batch.batchNumber})`,
+      }, transaction);
+      remaining -= take;
+    }
+  }
+};
 
 // Re-export tất cả hàm của DosageTemplate và UsageGuide từ service riêng biệt
 export * from './dosageTemplateService.js';
@@ -223,6 +279,30 @@ export const createPrescription = async (data: {
     throw new AppError('Hồ sơ bệnh nhân không hợp lệ', HttpStatus.BAD_REQUEST);
   }
 
+  if (!data.items || data.items.length === 0) {
+    throw new AppError('Đơn thuốc phải có ít nhất 1 loại thuốc', HttpStatus.BAD_REQUEST);
+  }
+
+  // Validate sản phẩm tồn tại, đang active, và không kê trùng thuốc trong cùng 1 đơn
+  const seenProductIds = new Set<number>();
+  for (const item of data.items) {
+    if (seenProductIds.has(item.productId)) {
+      const product = await productRepository.findById(item.productId);
+      throw new AppError(`Thuốc "${product?.name || item.productId}" bị kê trùng nhiều dòng trong cùng đơn`, HttpStatus.BAD_REQUEST);
+    }
+    seenProductIds.add(item.productId);
+
+    const product = await productRepository.findById(item.productId);
+    if (!product) {
+      throw new AppError(`Thuốc với ID ${item.productId} không tồn tại`, HttpStatus.NOT_FOUND);
+    }
+    if (!(product as any).isActive) {
+      throw new AppError(`Thuốc "${product.name}" đã ngừng kinh doanh, không thể kê đơn`, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  const status = data.status || PrescriptionStatus.CONFIRMED;
+
   // Generate collision-free code e.g. RX-20260728-A1B2C3
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -237,25 +317,39 @@ export const createPrescription = async (data: {
       treatmentHistoryId: data.treatmentHistoryId || null,
       diagnosis: data.diagnosis,
       notes: data.notes || null,
-      status: data.status || PrescriptionStatus.CONFIRMED,
+      status,
       prescribedAt: new Date(),
     }, { transaction: t });
 
-    if (data.items && data.items.length > 0) {
-      const itemsToCreate = data.items.map((item) => ({
+    // Không tin totalQuantity client gửi lên — luôn tính lại theo công thức
+    const itemsToCreate = data.items.map((item) => {
+      const multiplier = FREQUENCY_MULTIPLIER[item.frequency as DosageFrequency] || 1;
+      const quantityPerDose = item.quantityPerDose || 1;
+      const durationDays = item.durationDays || 5;
+      return {
         prescriptionId: prescription.id,
         productId: item.productId,
         dosageTemplateId: item.dosageTemplateId || null,
         dosageText: item.dosageText,
-        quantityPerDose: item.quantityPerDose || 1,
+        quantityPerDose,
         frequency: item.frequency as any,
-        durationDays: item.durationDays || 5,
-        totalQuantity: item.totalQuantity,
+        durationDays,
+        totalQuantity: quantityPerDose * multiplier * durationDays,
         mealRelation: item.mealRelation as any,
         usageInstruction: item.usageInstruction || null,
         warnings: item.warnings || null,
-      }));
-      await PrescriptionItem.bulkCreate(itemsToCreate, { transaction: t });
+      };
+    });
+    await PrescriptionItem.bulkCreate(itemsToCreate, { transaction: t });
+
+    // Đơn ở trạng thái CONFIRMED nghĩa là thuốc được cấp phát ngay -> trừ kho luôn
+    if (status === PrescriptionStatus.CONFIRMED) {
+      await consumePrescriptionStock(
+        itemsToCreate.map((i) => ({ productId: i.productId, totalQuantity: i.totalQuantity })),
+        data.dentistId,
+        t,
+        `Cấp phát theo đơn thuốc ${code}`,
+      );
     }
 
     return prescription.id;
@@ -264,14 +358,36 @@ export const createPrescription = async (data: {
   return getPrescriptionById(createdId);
 };
 
-export const updatePrescriptionStatus = async (id: number, status: PrescriptionStatus) => {
-  const prescription = await Prescription.findByPk(id);
+export const updatePrescriptionStatus = async (id: number, status: PrescriptionStatus, performedBy: number) => {
+  const prescription = await Prescription.findByPk(id, {
+    include: [{ model: PrescriptionItem, as: 'items' }],
+  });
   if (!prescription) {
     throw new AppError('Không tìm thấy đơn thuốc', HttpStatus.NOT_FOUND);
   }
 
-  prescription.status = status;
-  await prescription.save();
+  const currentStatus = prescription.status as PrescriptionStatus;
+  if (currentStatus === status) {
+    throw new AppError(`Đơn thuốc đã ở trạng thái này`, HttpStatus.BAD_REQUEST);
+  }
+  const allowedNext = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
+  if (!allowedNext.includes(status)) {
+    throw new AppError(
+      `Không thể chuyển đơn thuốc từ trạng thái "${currentStatus}" sang "${status}"`,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+
+  await sequelize.transaction(async (t) => {
+    // Xác nhận đơn nháp -> cấp phát thuốc, cần trừ kho tại thời điểm này
+    if (currentStatus === PrescriptionStatus.DRAFT && status === PrescriptionStatus.CONFIRMED) {
+      const items = ((prescription as any).items || []) as Array<{ productId: number; totalQuantity: number }>;
+      await consumePrescriptionStock(items, performedBy, t, `Cấp phát theo đơn thuốc ${prescription.code}`);
+    }
+
+    prescription.status = status;
+    await prescription.save({ transaction: t });
+  });
 
   return getPrescriptionById(id);
 };
