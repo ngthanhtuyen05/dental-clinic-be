@@ -7,6 +7,7 @@ import { productRepository } from '../repositories/productRepository.js';
 import { stockRepository } from '../repositories/stockRepository.js';
 import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
+import { getClinicToday } from '../utils/datetime.js';
 
 /** Các trạng thái đơn thuốc được phép chuyển tới từ mỗi trạng thái hiện tại. */
 const ALLOWED_STATUS_TRANSITIONS: Record<PrescriptionStatus, PrescriptionStatus[]> = {
@@ -471,7 +472,8 @@ export const createPrescription = async (data: {
   const status = data.status || PrescriptionStatus.CONFIRMED;
 
   // Generate collision-free code e.g. RX-20260728-A1B2C3
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  // Theo giờ phòng khám: dùng UTC thì đơn kê lúc 0h-7h sáng mang mã của ngày hôm trước.
+  const dateStr = getClinicToday().replace(/-/g, '');
   const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
   const code = `RX-${dateStr}-${randomHex}`;
 

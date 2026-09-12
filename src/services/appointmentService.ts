@@ -377,25 +377,36 @@ const createVisitFromCompletedAppointment = async (appt: any, transaction: any) 
   });
   if (!profile) return null;
 
-  const existing = await TreatmentHistory.findOne({
+  let visit = await TreatmentHistory.findOne({
     where: { appointmentId: appt.id },
     transaction,
   });
-  if (existing) return existing;
 
-  const service = appt.service;
-  const serviceName = service?.name || 'Khám nha khoa';
+  if (!visit) {
+    const service = appt.service;
+    const serviceName = service?.name || 'Khám nha khoa';
 
-  return TreatmentHistory.create({
-    patientProfileId: profile.id,
-    dentistId: appt.dentistId,
-    appointmentId: appt.id,
-    diagnosis: appt.chiefComplaint?.trim() || serviceName,
-    treatment: serviceName,
-    cost: Number(service?.price) || 0,
-    treatmentDate: new Date(),
-    notes: appt.notes ?? null,
-  }, { transaction });
+    visit = await TreatmentHistory.create({
+      patientProfileId: profile.id,
+      dentistId: appt.dentistId,
+      appointmentId: appt.id,
+      diagnosis: appt.chiefComplaint?.trim() || serviceName,
+      treatment: serviceName,
+      cost: Number(service?.price) || 0,
+      treatmentDate: new Date(),
+      notes: appt.notes ?? null,
+    }, { transaction });
+  }
+
+  // Đơn thuốc thường được kê NGAY TRONG LÚC KHÁM (lịch hẹn còn IN_PROGRESS), tức trước khi
+  // lần khám tồn tại, nên lúc tạo đơn không có treatmentHistoryId để gắn. Gắn ngược lại ở
+  // đây, nếu không thì gần như mọi đơn thuốc đều mồ côi lần khám.
+  await Prescription.update(
+    { treatmentHistoryId: visit.id },
+    { where: { appointmentId: appt.id, treatmentHistoryId: null }, transaction },
+  );
+
+  return visit;
 };
 
 export const updateAppointmentStatus = async (id: number, status: AppointmentStatus, cancelReason?: string, notes?: string) => {

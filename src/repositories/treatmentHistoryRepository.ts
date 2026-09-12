@@ -3,6 +3,7 @@ import PatientProfile from '../models/patientProfileModel.js';
 import User from '../models/userModel.js';
 import type { TreatmentHistoryModel } from '../models/treatmentHistoryModel.js';
 import type { CreationAttributes } from 'sequelize';
+import { Prescription, PrescriptionItem, Product } from './../models/index.js';
 
 export class TreatmentHistoryRepository {
   async findByProfileId(patientProfileId: number): Promise<TreatmentHistoryModel[]> {
@@ -10,6 +11,22 @@ export class TreatmentHistoryRepository {
       where: { patientProfileId },
       include: [
         { model: User, as: 'dentist', attributes: ['id', 'fullName'] },
+        {
+          model: Prescription,
+          as: 'prescriptions',
+          required: false,
+          attributes: ['id', 'code', 'status', 'diagnosis', 'prescribedAt'],
+          include: [
+            {
+              model: PrescriptionItem,
+              as: 'items',
+              attributes: ['id', 'dosageText', 'totalQuantity', 'frequency', 'durationDays'],
+              include: [
+                { model: Product, as: 'product', attributes: ['id', 'code', 'name', 'unit'] },
+              ],
+            },
+          ],
+        },
       ],
       order: [['treatmentDate', 'DESC']],
     });
@@ -20,6 +37,22 @@ export class TreatmentHistoryRepository {
       include: [
         { model: PatientProfile, as: 'patientProfile' },
         { model: User, as: 'dentist', attributes: ['id', 'fullName'] },
+        {
+          model: Prescription,
+          as: 'prescriptions',
+          required: false,
+          attributes: ['id', 'code', 'status', 'diagnosis', 'prescribedAt'],
+          include: [
+            {
+              model: PrescriptionItem,
+              as: 'items',
+              attributes: ['id', 'dosageText', 'totalQuantity', 'frequency', 'durationDays'],
+              include: [
+                { model: Product, as: 'product', attributes: ['id', 'code', 'name', 'unit'] },
+              ],
+            },
+          ],
+        },
       ],
     });
   }

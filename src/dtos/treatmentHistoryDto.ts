@@ -32,6 +32,8 @@ export class TreatmentHistoryResponseDto {
   public createdAt: Date;
   public patientProfile?: PatientProfileResponseDto;
   public dentist?: UserResponseDto;
+  /** Đơn thuốc đã kê trong lần khám này (FE hiển thị ở ngăn "Đơn thuốc liên quan"). */
+  public prescriptions: any[];
 
   constructor(model: TreatmentHistoryModel) {
     this.id = model.id;
@@ -43,6 +45,8 @@ export class TreatmentHistoryResponseDto {
     this.treatmentDate = model.treatmentDate;
     this.notes = model.notes;
     this.createdAt = model.createdAt || new Date();
+
+    this.prescriptions = (model as any).prescriptions || [];
 
     const patientProfileModel = (model as any).patientProfile;
     const dentistModel = (model as any).dentist;
