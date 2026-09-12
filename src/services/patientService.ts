@@ -1,8 +1,7 @@
-import { Op } from 'sequelize';
 import { patientRepository } from '../repositories/patientRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { patientProfileRepository } from '../repositories/patientProfileRepository.js';
-import { PatientProfile } from '../models/index.js';
+import { PatientProfile, Appointment, TreatmentHistory, Prescription, Invoice } from '../models/index.js';
 import { hashPassword } from '../utils/password.js';
 import sequelize from '../config/db.js';
 import AppError from '../utils/AppError.js';
@@ -175,11 +174,45 @@ export const updatePatientOdontogram = async (id: number, teeth: any[]) => {
   return teeth;
 };
 
+/**
+ * Xóa bệnh nhân — chỉ cho phép với hồ sơ CHƯA phát sinh dữ liệu lâm sàng.
+ *
+ * Xóa User sẽ CASCADE kéo theo PatientProfile -> Prescription -> PrescriptionItem và toàn bộ
+ * Appointment/TreatmentHistory/Invoice của bệnh nhân. Riêng StockTransaction.prescriptionId
+ * không CASCADE nên sẽ còn lại các giao dịch kho trỏ vào đơn thuốc đã biến mất: thuốc đã trừ
+ * kho mà không thể truy vết hay hoàn lại. Hồ sơ bệnh án, đơn thuốc và lịch sử điều trị là dữ
+ * liệu phải lưu trữ, nên khi đã có dữ liệu lâm sàng ta từ chối xóa và hướng người dùng sang
+ * thao tác "ngừng hoạt động" (PatientStatus.INACTIVE).
+ */
 export const deletePatient = async (id: number) => {
   const patient = await patientRepository.findById(id);
   if (!patient) {
     throw new AppError('Không tìm thấy bệnh nhân.', 404);
   }
+
+  const profile = (patient as any).patientProfile;
+
+  const [appointmentCount, treatmentCount, prescriptionCount, invoiceCount] = await Promise.all([
+    Appointment.count({ where: { patientId: patient.id } }),
+    profile ? TreatmentHistory.count({ where: { patientProfileId: profile.id } }) : Promise.resolve(0),
+    profile ? Prescription.count({ where: { patientProfileId: profile.id } }) : Promise.resolve(0),
+    profile ? Invoice.count({ where: { patientProfileId: profile.id } }) : Promise.resolve(0),
+  ]);
+
+  const blockers: string[] = [];
+  if (appointmentCount > 0) blockers.push(`${appointmentCount} lịch hẹn`);
+  if (treatmentCount > 0) blockers.push(`${treatmentCount} lần khám`);
+  if (prescriptionCount > 0) blockers.push(`${prescriptionCount} đơn thuốc`);
+  if (invoiceCount > 0) blockers.push(`${invoiceCount} hóa đơn`);
+
+  if (blockers.length > 0) {
+    throw new AppError(
+      `Không thể xóa bệnh nhân này vì đã phát sinh ${blockers.join(', ')}. ` +
+      'Hồ sơ bệnh án phải được lưu trữ — vui lòng dùng chức năng "Ngừng hoạt động" thay cho xóa.',
+      HttpStatus.CONFLICT,
+    );
+  }
+
   await userRepository.delete(patient);
   return true;
 };
@@ -292,14 +325,13 @@ export const resolvePatientProfileId = async (paramId: string | number): Promise
     throw new AppError('Mã bệnh nhân không hợp lệ.', HttpStatus.BAD_REQUEST);
   }
 
-  const profile = await PatientProfile.findOne({
-    where: {
-      [Op.or]: [{ id: parsedId }, { userId: parsedId }],
-    },
-  });
+  // `:id` LUÔN là User.id — không bao giờ là PatientProfile.id. Trước đây hàm này tra cả hai
+  // bằng Op.or, nên khi PatientProfile.id của bệnh nhân A trùng số với User.id của bệnh nhân B
+  // thì DB trả về bản ghi nào là tùy thứ tự quét bảng => có thể gắn đơn thuốc cho sai bệnh nhân.
+  const profile = await PatientProfile.findOne({ where: { userId: parsedId } });
 
   if (!profile) {
-    throw new AppError('Không tìm thấy hồ sơ bệnh nhân.', HttpStatus.NOT_FOUND);
+    throw new AppError('Không tìm thấy hồ sơ bệnh nhân cho mã bệnh nhân này.', HttpStatus.NOT_FOUND);
   }
 
   return profile.id;

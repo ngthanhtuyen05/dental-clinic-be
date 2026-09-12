@@ -58,6 +58,10 @@ TreatmentHistory.belongsTo(PatientProfile, { foreignKey: 'patientProfileId', as:
 User.hasMany(TreatmentHistory, { foreignKey: 'dentistId', as: 'dentistTreatments' });
 TreatmentHistory.belongsTo(User, { foreignKey: 'dentistId', as: 'dentist' });
 
+// Appointment ↔ TreatmentHistory (1:1 — lịch hẹn hoàn thành sinh đúng 1 lần khám)
+Appointment.hasOne(TreatmentHistory, { foreignKey: 'appointmentId', as: 'treatmentHistory' });
+TreatmentHistory.belongsTo(Appointment, { foreignKey: 'appointmentId', as: 'appointment' });
+
 // ServiceCategory ↔ Service (1:N)
 ServiceCategory.hasMany(Service, { foreignKey: 'categoryId', as: 'services' });
 Service.belongsTo(ServiceCategory, { foreignKey: 'categoryId', as: 'category' });

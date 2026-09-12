@@ -10,6 +10,8 @@ export class ProductResponseDto {
   importUnit: string | null;
   conversionRate: number;
   description: string | null;
+  activeIngredient: string | null;
+  pregnancyContraindicated: boolean;
   isActive: boolean;
   totalStock: number;
   supplier: { id: number; name: string } | null;
@@ -28,6 +30,8 @@ export class ProductResponseDto {
     this.importUnit = product.importUnit ?? product.dataValues?.importUnit ?? null;
     this.conversionRate = Number(product.conversionRate ?? product.dataValues?.conversionRate ?? 1);
     this.description = product.description;
+    this.activeIngredient = product.activeIngredient ?? product.dataValues?.activeIngredient ?? null;
+    this.pregnancyContraindicated = Boolean(product.pregnancyContraindicated ?? product.dataValues?.pregnancyContraindicated ?? false);
     this.isActive = product.isActive;
     this.totalStock = parseInt(product.dataValues?.totalStock ?? product.totalStock ?? 0, 10);
 

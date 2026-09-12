@@ -10,6 +10,8 @@ import * as m007 from './migrations/007_add_unit_conversion_to_products.js';
 import * as m008 from './migrations/008_enhance_invoices_cashier_flow.js';
 import * as m009 from './migrations/009_add_odontogram_to_patient_profiles.js';
 import * as m010 from './migrations/010_add_prescription_id_to_stock_transactions.js';
+import * as m011 from './migrations/011_link_treatment_history_to_appointment.js';
+import * as m012 from './migrations/012_add_clinical_safety_fields_to_products.js';
 
 export interface MigrationModule {
   name: string;
@@ -28,6 +30,8 @@ export const registeredMigrations: MigrationModule[] = [
   m008,
   m009,
   m010,
+  m011,
+  m012,
 ];
 
 

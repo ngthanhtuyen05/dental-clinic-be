@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { appointmentRepository } from '../repositories/appointmentRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { serviceRepository } from '../repositories/serviceRepository.js';
-import { Prescription } from '../models/index.js';
+import { Prescription, PatientProfile, TreatmentHistory } from '../models/index.js';
 import { AppointmentStatus, AppointmentType, UserRole, PatientStatus, PrescriptionStatus } from '../constants/enums.js';
 import type {
   CreateAppointmentRequestDto,
@@ -18,6 +18,7 @@ import User from '../models/userModel.js';
 import { Notification } from '../models/index.js';
 import { emitToStaff } from './socketService.js';
 import { hashPassword } from '../utils/password.js';
+import { getClinicToday, getClinicTimeHHmm } from '../utils/datetime.js';
 
 // Helper: Cộng giờ
 function calculateEndTime(startTime: string, durationMinutes: number): string {
@@ -121,10 +122,17 @@ export const createNewAppointment = async (
 
   // Nếu là người dùng vai trò bệnh nhân đã đăng ký, bắt buộc phải có hồ sơ bệnh án
   if (patient && patient.role === UserRole.PATIENT) {
-    const PatientProfileModel = (await import('../models/patientProfileModel.js')).default;
-    const existingProfile = await PatientProfileModel.findOne({ where: { userId: patient.id } });
+    const existingProfile = await PatientProfile.findOne({ where: { userId: patient.id } });
     if (!existingProfile) {
       throw new AppError('Vui lòng hoàn tất hồ sơ bệnh nhân trước khi đặt lịch hẹn.', 400);
+    }
+    // Hồ sơ đã ngừng hoạt động thì không tiếp nhận lịch hẹn mới — nếu không, thao tác
+    // "Ngừng hoạt động" ở màn hình bệnh nhân sẽ không có tác dụng nghiệp vụ nào.
+    if (existingProfile.status === PatientStatus.INACTIVE) {
+      throw new AppError(
+        'Hồ sơ bệnh nhân này đang ở trạng thái ngừng hoạt động, không thể đặt lịch hẹn mới. Vui lòng liên hệ phòng khám để kích hoạt lại.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
@@ -189,11 +197,9 @@ export const createNewAppointment = async (
         password: defaultPassword,
       }, { transaction: t });
 
-      const PatientProfileModel = (await import('../models/patientProfileModel.js')).default;
-      await PatientProfileModel.create({
+      await PatientProfile.create({
         userId: patient.id,
-        medicalHistory: null,
-        notes: null,
+        status: PatientStatus.ACTIVE,
       } as any, { transaction: t });
 
       finalPatientId = patient.id;
@@ -357,6 +363,41 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
   return await appointmentRepository.findById(id);
 };
 
+/**
+ * Sinh bản ghi "lần khám" (TreatmentHistory) từ một lịch hẹn vừa chuyển sang COMPLETED.
+ *
+ * Cột TreatmentHistories.appointmentId là UNIQUE nên nếu vì lý do nào đó hàm được gọi lại
+ * cho cùng lịch hẹn, ta trả về bản ghi cũ thay vì tạo trùng. Bệnh nhân không có hồ sơ bệnh
+ * án (dữ liệu cũ) thì bỏ qua — không chặn việc hoàn thành lịch hẹn vì lý do này.
+ */
+const createVisitFromCompletedAppointment = async (appt: any, transaction: any) => {
+  const profile = await PatientProfile.findOne({
+    where: { userId: appt.patientId },
+    transaction,
+  });
+  if (!profile) return null;
+
+  const existing = await TreatmentHistory.findOne({
+    where: { appointmentId: appt.id },
+    transaction,
+  });
+  if (existing) return existing;
+
+  const service = appt.service;
+  const serviceName = service?.name || 'Khám nha khoa';
+
+  return TreatmentHistory.create({
+    patientProfileId: profile.id,
+    dentistId: appt.dentistId,
+    appointmentId: appt.id,
+    diagnosis: appt.chiefComplaint?.trim() || serviceName,
+    treatment: serviceName,
+    cost: Number(service?.price) || 0,
+    treatmentDate: new Date(),
+    notes: appt.notes ?? null,
+  }, { transaction });
+};
+
 export const updateAppointmentStatus = async (id: number, status: AppointmentStatus, cancelReason?: string, notes?: string) => {
   const appt = await appointmentRepository.findById(id);
   if (!appt) {
@@ -421,13 +462,22 @@ export const updateAppointmentStatus = async (id: number, status: AppointmentSta
     updateFields.cancelReason = cancelReason || 'Không có lý do hủy cụ thể';
   }
 
-  await appointmentRepository.update(appt, updateFields);
+  await sequelize.transaction(async (t) => {
+    await appointmentRepository.update(appt, updateFields, { transaction: t });
+
+    // Lịch hẹn khám xong = 1 lần khám trong hồ sơ bệnh nhân. Nếu không sinh ở đây thì tab
+    // "Lịch sử khám" (đọc từ TreatmentHistory) sẽ luôn rỗng dù bệnh nhân đã khám nhiều lần,
+    // và đơn thuốc cũng không có lần khám nào để gắn treatmentHistoryId.
+    if (status === AppointmentStatus.COMPLETED) {
+      await createVisitFromCompletedAppointment(appt, t);
+    }
+  });
 
   return await appointmentRepository.findById(id);
 };
 
 export const getTodayStats = async (doctorId?: number) => {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const today = getClinicToday();
   
   // Đếm theo từng status
   const statuses = Object.values(AppointmentStatus);
@@ -486,14 +536,8 @@ export const getAvailableSlots = async (
   ];
 
   // Helper check if time slot is in the past for today (UTC+7 / Vietnam time)
-  const now = new Date();
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
-  const currentHourMinute = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(now);
+  const todayStr = getClinicToday();
+  const currentHourMinute = getClinicTimeHHmm();
 
   const isToday = date === todayStr;
 

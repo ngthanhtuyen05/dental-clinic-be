@@ -1,4 +1,5 @@
 import { Gender, PatientStatus } from '../constants/enums.js';
+import { toClinicDateString } from '../utils/datetime.js';
 
 // Request DTOs
 export interface PatientQueryDto {
@@ -110,7 +111,7 @@ export class PatientResponseDto {
     this.age = age;
     this.dateOfBirth = dob ? new Date(dob).toISOString().split('T')[0] : '';
     this.history = profile?.allergies || 'Không có';
-    this.lastVisit = lastVisit ? new Date(lastVisit).toISOString().split('T')[0] : '';
+    this.lastVisit = lastVisit ? toClinicDateString(new Date(lastVisit)) : '';
     this.status = profile?.status || PatientStatus.ACTIVE;
     this.odontogram = profile?.odontogram || null;
     this.profileDetails = {

@@ -4,6 +4,7 @@ import sequelize from '../config/db.js';
 import { StockTransactionType } from '../constants/enums.js';
 import AppError from '../utils/AppError.js';
 import HttpStatus from '../constants/httpStatus.js';
+import { getClinicToday, addClinicDays } from '../utils/datetime.js';
 
 export class StockRepository {
   async createBatch(data: {
@@ -128,8 +129,8 @@ export class StockRepository {
    * Tìm tất cả các lô hàng cận date hoặc đã quá hạn còn tồn kho
    */
   async findExpiringBatches(days = 60) {
-    const today = new Date().toISOString().split('T')[0];
-    const targetDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = getClinicToday();
+    const targetDate = addClinicDays(days);
 
     const batches = await StockBatch.findAll({
       where: {
@@ -156,8 +157,8 @@ export class StockRepository {
    * Thống kê tổng quan KPI kho (tổng vốn, cảnh báo hết hàng, cận date)
    */
   async getInventoryStatsSummary() {
-    const today = new Date().toISOString().split('T')[0];
-    const next60Days = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = getClinicToday();
+    const next60Days = addClinicDays(60);
 
     const [totalProducts, valueResult, expiredCount, expiringSoonCount] = await Promise.all([
       Product.count({ where: { isActive: true } }),

@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { Op } from 'sequelize';
 import sequelize from '../config/db.js';
-import { Prescription, PrescriptionItem, PatientProfile, User, Product, Appointment } from '../models/index.js';
-import { PrescriptionStatus, StockTransactionType, FREQUENCY_MULTIPLIER, AppointmentStatus, type DosageFrequency } from '../constants/enums.js';
+import { Prescription, PrescriptionItem, PatientProfile, User, Product, Appointment, TreatmentHistory } from '../models/index.js';
+import { PrescriptionStatus, StockTransactionType, FREQUENCY_MULTIPLIER, AppointmentStatus, PatientStatus, InventoryCategory, type DosageFrequency } from '../constants/enums.js';
 import { productRepository } from '../repositories/productRepository.js';
 import { stockRepository } from '../repositories/stockRepository.js';
 import AppError from '../utils/AppError.js';
@@ -99,6 +99,56 @@ const restockPrescriptionStock = async (
 export * from './dosageTemplateService.js';
 export * from './usageGuideService.js';
 
+/** Bỏ dấu tiếng Việt + hạ chữ thường để so khớp tên thuốc/hoạt chất với khai báo dị ứng. */
+const normalizeForMatch = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+
+/**
+ * Đối chiếu đơn thuốc với chống chỉ định ghi trong hồ sơ bệnh nhân.
+ *
+ * Hồ sơ đã lưu sẵn `allergies` và `isPregnant` nhưng trước đây không nơi nào đọc khi kê đơn —
+ * kê đúng thứ thuốc bệnh nhân khai dị ứng vẫn lọt. Ở đây ta tách khai báo dị ứng thành từng
+ * từ khóa (ngăn cách bởi dấu phẩy/chấm phẩy/xuống dòng) rồi so với tên thuốc và hoạt chất.
+ *
+ * Đây là lưới an toàn, không thay thế thẩm định của bác sĩ: bác sĩ vẫn có thể kê đè bằng cách
+ * gửi kèm `overrideReason` — lý do đó được ghi vào ghi chú đơn để truy vết.
+ */
+const findClinicalContraindications = (
+  profile: { allergies?: string | null; isPregnant?: boolean },
+  products: Array<{ name: string; activeIngredient?: string | null; pregnancyContraindicated?: boolean }>,
+): string[] => {
+  const warnings: string[] = [];
+
+  const allergyTerms = (profile.allergies || '')
+    .split(/[,;\n\r/|]+/)
+    .map((term) => normalizeForMatch(term))
+    // Bỏ token quá ngắn để tránh khớp bừa (vd "da" khớp vào "Paracetamol")
+    .filter((term) => term.length >= 3);
+
+  for (const product of products) {
+    const haystack = normalizeForMatch(`${product.name} ${product.activeIngredient || ''}`);
+
+    for (const term of allergyTerms) {
+      if (haystack.includes(term)) {
+        warnings.push(`Bệnh nhân khai dị ứng "${term}" — trùng với thuốc "${product.name}"`);
+        break;
+      }
+    }
+
+    if (profile.isPregnant && product.pregnancyContraindicated) {
+      warnings.push(`Bệnh nhân đang mang thai — thuốc "${product.name}" chống chỉ định với thai kỳ`);
+    }
+  }
+
+  return warnings;
+};
+
 export const getPrescriptions = async (params: {
   page?: number;
   limit?: number;
@@ -142,10 +192,21 @@ export const getPrescriptions = async (params: {
 
   if (params.keyword) {
     const kw = `%${params.keyword.trim()}%`;
+    // Không dùng cột lồng kiểu '$patientProfile.user.fullName$' ở đây: include `items` là
+    // hasMany nên Sequelize bật subQuery, điều kiện bị đẩy vào truy vấn con vốn không join
+    // hai bảng đó => MySQL báo "Unknown column 'patientProfile->user.fullName'" (lỗi 500).
+    // Lọc bằng truy vấn con trên patientProfileId vừa chạy đúng vừa giữ nguyên phân trang.
     where[Op.or] = [
       { code: { [Op.like]: kw } },
       { diagnosis: { [Op.like]: kw } },
-      { '$patientProfile.user.fullName$': { [Op.like]: kw } },
+      {
+        patientProfileId: {
+          [Op.in]: sequelize.literal(
+            `(SELECT pp.id FROM PatientProfiles pp INNER JOIN Users u ON u.id = pp.userId ` +
+            `WHERE u.fullName LIKE ${sequelize.escape(kw)} OR u.phone LIKE ${sequelize.escape(kw)})`,
+          ),
+        },
+      },
     ];
   }
 
@@ -270,6 +331,8 @@ export const createPrescription = async (data: {
   diagnosis: string;
   notes?: string;
   status?: PrescriptionStatus;
+  /** Lý do bác sĩ vẫn kê dù có cảnh báo chống chỉ định (dị ứng / thai kỳ). */
+  overrideReason?: string;
   items: Array<{
     productId: number;
     dosageTemplateId?: number;
@@ -283,40 +346,29 @@ export const createPrescription = async (data: {
     warnings?: string;
   }>;
 }) => {
-  // Resolve numeric patientProfileId
-  let targetProfileId = Number(data.patientProfileId);
-  if (isNaN(targetProfileId) || !targetProfileId) {
-    if (typeof data.patientProfileId === 'string') {
-      const numericStr = (data.patientProfileId as string).replace(/\D/g, '');
-      const num = parseInt(numericStr, 10);
-      if (!isNaN(num)) {
-        const profile = await PatientProfile.findOne({
-          where: {
-            [Op.or]: [{ id: num }, { userId: num }],
-          },
-        });
-        targetProfileId = profile ? profile.id : num;
-      }
-    }
-  } else {
-    const profileById = await PatientProfile.findByPk(targetProfileId);
-    if (!profileById) {
-      const profileByUserId = await PatientProfile.findOne({ where: { userId: targetProfileId } });
-      if (profileByUserId) {
-        targetProfileId = profileByUserId.id;
-      }
-    }
-  }
-
-  if (!targetProfileId || isNaN(targetProfileId)) {
+  // `patientProfileId` LUÔN là PatientProfile.id — không chấp nhận User.id thay thế.
+  // Bản cũ dò cả hai (Op.or id/userId, rồi fallback sang userId), nên một id vừa khớp
+  // PatientProfile.id của bệnh nhân A vừa khớp User.id của bệnh nhân B sẽ được resolve
+  // theo thứ tự quét bảng của DB => kê đơn cho sai bệnh nhân. Route lồng
+  // /patients/:id/prescriptions đã resolve sẵn qua patientService.resolvePatientProfileId.
+  const targetProfileId = Number(String(data.patientProfileId ?? '').trim());
+  if (!Number.isInteger(targetProfileId) || targetProfileId <= 0) {
     throw new AppError('Hồ sơ bệnh nhân không hợp lệ', HttpStatus.BAD_REQUEST);
   }
 
-  // Xác nhận hồ sơ thực sự tồn tại sau khi resolve — tránh rơi thẳng xuống insert và
-  // ném lỗi ràng buộc khóa ngoại thô ở tầng DB khi id không khớp bệnh nhân nào.
   const targetProfile = await PatientProfile.findByPk(targetProfileId);
   if (!targetProfile) {
-    throw new AppError('Không tìm thấy hồ sơ bệnh nhân', HttpStatus.NOT_FOUND);
+    throw new AppError(
+      'Không tìm thấy hồ sơ bệnh nhân (patientProfileId phải là ID hồ sơ bệnh án, không phải ID tài khoản người dùng)',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+
+  if (targetProfile.status === PatientStatus.INACTIVE) {
+    throw new AppError(
+      'Hồ sơ bệnh nhân này đang ở trạng thái ngừng hoạt động, không thể kê đơn thuốc mới.',
+      HttpStatus.BAD_REQUEST,
+    );
   }
 
   if (!data.items || data.items.length === 0) {
@@ -338,6 +390,32 @@ export const createPrescription = async (data: {
         HttpStatus.BAD_REQUEST,
       );
     }
+    // Lịch hẹn phải là của chính bệnh nhân được kê đơn — Appointment tham chiếu Users.id còn
+    // Prescription tham chiếu PatientProfiles.id, nếu không đối chiếu thì có thể kê đơn cho
+    // bệnh nhân A nhưng gắn lịch hẹn của bệnh nhân B (sai hồ sơ, sai cả thống kê/hóa đơn).
+    if (appointment.patientId !== targetProfile.userId) {
+      throw new AppError(
+        'Lịch hẹn được gắn không thuộc về bệnh nhân này',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Lần khám được gắn cũng phải thuộc đúng hồ sơ bệnh nhân đang kê đơn.
+  let treatmentHistoryId = data.treatmentHistoryId || null;
+  if (treatmentHistoryId) {
+    const treatment = await TreatmentHistory.findByPk(treatmentHistoryId);
+    if (!treatment) {
+      throw new AppError('Lần khám liên kết không tồn tại', HttpStatus.NOT_FOUND);
+    }
+    if (treatment.patientProfileId !== targetProfileId) {
+      throw new AppError('Lần khám được gắn không thuộc về bệnh nhân này', HttpStatus.BAD_REQUEST);
+    }
+  } else if (data.appointmentId) {
+    // Kê đơn từ màn hình lịch hẹn: tự gắn vào lần khám mà lịch hẹn đó đã sinh ra, để đơn
+    // thuốc hiện đúng trong chi tiết lần khám thay vì treo lơ lửng ngoài hồ sơ.
+    const visit = await TreatmentHistory.findOne({ where: { appointmentId: data.appointmentId } });
+    if (visit) treatmentHistoryId = visit.id;
   }
 
   // Validate sản phẩm tồn tại, đang active, và không kê trùng thuốc trong cùng 1 đơn
@@ -357,6 +435,37 @@ export const createPrescription = async (data: {
     if (!product.isActive) {
       throw new AppError(`Thuốc "${product.name}" đã ngừng kinh doanh, không thể kê đơn`, HttpStatus.BAD_REQUEST);
     }
+    // Đơn thuốc chỉ được chứa THUỐC. Kho còn chứa găng tay, khẩu trang, kim tiêm, vật tư nha
+    // khoa — trước đây các mặt hàng này kê vào đơn thuốc vẫn lọt và bị trừ kho theo đường cấp
+    // phát thuốc, làm sai cả đơn in cho bệnh nhân lẫn sổ xuất kho.
+    if (product.category !== InventoryCategory.MEDICINE) {
+      throw new AppError(
+        `"${product.name}" là vật tư/thiết bị, không phải thuốc — không thể kê vào đơn thuốc`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Đối chiếu chống chỉ định với hồ sơ bệnh nhân trước khi cho phép kê.
+  const contraindications = findClinicalContraindications(
+    targetProfile,
+    uniqueProductIds.map((id) => productById.get(id)),
+  );
+  const overrideReason = data.overrideReason?.trim();
+  if (contraindications.length > 0 && !overrideReason) {
+    throw new AppError(
+      `Đơn thuốc có chống chỉ định với hồ sơ bệnh nhân:\n- ${contraindications.join('\n- ')}\n` +
+      'Nếu vẫn quyết định kê, vui lòng gửi kèm lý do (overrideReason).',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+
+  // Ghi lý do kê đè vào ghi chú đơn để hồ sơ còn dấu vết cảnh báo đã bị bỏ qua.
+  let finalNotes = data.notes || null;
+  if (contraindications.length > 0 && overrideReason) {
+    const overrideNote =
+      `[Kê đè cảnh báo chống chỉ định] ${contraindications.join('; ')}. Lý do: ${overrideReason}`;
+    finalNotes = finalNotes ? `${finalNotes}\n${overrideNote}` : overrideNote;
   }
 
   const status = data.status || PrescriptionStatus.CONFIRMED;
@@ -372,9 +481,9 @@ export const createPrescription = async (data: {
       patientProfileId: targetProfileId,
       dentistId: data.dentistId,
       appointmentId: data.appointmentId || null,
-      treatmentHistoryId: data.treatmentHistoryId || null,
+      treatmentHistoryId,
       diagnosis: data.diagnosis,
-      notes: data.notes || null,
+      notes: finalNotes,
       status,
       prescribedAt: new Date(),
     }, { transaction: t });

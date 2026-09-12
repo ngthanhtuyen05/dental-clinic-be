@@ -30,6 +30,8 @@ const basePrescriptionBodySchema = z.object({
   status: z.enum([PrescriptionStatus.DRAFT, PrescriptionStatus.CONFIRMED], {
     message: 'Trạng thái khi tạo đơn chỉ có thể là draft hoặc confirmed',
   }).optional(),
+  // Lý do bác sĩ vẫn kê dù hệ thống cảnh báo chống chỉ định (dị ứng / thai kỳ).
+  overrideReason: z.string().max(500).optional(),
   items: z.array(prescriptionItemSchema).min(1, 'Đơn thuốc phải có ít nhất 1 loại thuốc'),
 });
 

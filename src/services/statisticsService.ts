@@ -1,5 +1,6 @@
 import { QueryTypes } from 'sequelize';
 import sequelize from '../config/db.js';
+import { getClinicNowAsLocalDate } from '../utils/datetime.js';
 
 export interface DateRangeFilter {
   timeRange?: string; // 'today' | 'week' | 'month' | 'quarter' | 'year'
@@ -31,7 +32,9 @@ function formatLocalYMD(d: Date): string {
  * Helper: Tính khoảng ngày bắt đầu & kết thúc dựa trên filter (Chuẩn timezone địa phương)
  */
 function resolveDateRange(timeRange = 'month', customStart?: string, customEnd?: string) {
-  const now = new Date();
+  // Lấy "bây giờ" theo giờ phòng khám: mọi phép tính bên dưới dùng getFullYear/getMonth/
+  // getDate nên nếu để giờ máy chủ (UTC trong Docker) thì kỳ thống kê sẽ lệch 1 ngày.
+  const now = getClinicNowAsLocalDate();
 
   if (customStart && customEnd) {
     const start = new Date(customStart);

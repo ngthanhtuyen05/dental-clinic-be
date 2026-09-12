@@ -5,6 +5,8 @@ export interface TreatmentHistoryModel extends Model<InferAttributes<TreatmentHi
   id: CreationOptional<number>;
   patientProfileId: number;
   dentistId: number;
+  /** Lịch hẹn đã sinh ra lần khám này (null với lần khám nhập tay / walk-in không qua lịch hẹn). */
+  appointmentId: CreationOptional<number | null>;
   diagnosis: string;
   treatment: string;
   cost: number;
@@ -39,6 +41,16 @@ const TreatmentHistory = sequelize.define<TreatmentHistoryModel>('TreatmentHisto
       key: 'id',
     },
     onDelete: 'CASCADE',
+  },
+  appointmentId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    unique: true,
+    references: {
+      model: 'Appointments',
+      key: 'id',
+    },
+    onDelete: 'SET NULL',
   },
   diagnosis: {
     type: DataTypes.STRING,

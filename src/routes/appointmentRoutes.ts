@@ -20,6 +20,8 @@ import { checkPermission } from '../middlewares/permissionMiddleware.js';
 import { appointmentRepository } from '../repositories/appointmentRepository.js';
 import { AppointmentStatus, UserRole } from '../constants/enums.js';
 import { Response, NextFunction } from 'express';
+import AppError from '../utils/AppError.js';
+import HttpStatus from '../constants/httpStatus.js';
 
 const router = express.Router();
 
@@ -38,6 +40,30 @@ const allowOwnerCancelOrStaffStatus = async (req: AuthenticatedRequest, res: Res
   return checkPermission(['appointments.edit', 'appointments.cancel'])(req, res, next);
 };
 
+/**
+ * Đặt lịch hẹn: bệnh nhân chỉ được đặt cho CHÍNH MÌNH, nhân sự phòng khám cần quyền
+ * `appointments.create`. Trước đây route này chỉ có `protect`, nên bất kỳ tài khoản nào
+ * đăng nhập cũng đặt được lịch cho bệnh nhân khác (hoặc tạo tài khoản bệnh nhân mới qua
+ * nhánh khách vãng lai) mà không cần quyền gì.
+ */
+const allowSelfBookingOrStaffCreate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return next(new AppError('Vui lòng đăng nhập để đặt lịch hẹn.', HttpStatus.UNAUTHORIZED));
+  }
+
+  if (req.user.role === UserRole.PATIENT) {
+    // Ép về chính chủ và loại bỏ thông tin bệnh nhân khác do client gửi lên, tránh việc
+    // bệnh nhân tự khai phone/email của người khác để đặt hộ hoặc tạo hồ sơ mới.
+    req.body.patientId = req.user.id;
+    delete req.body.fullName;
+    delete req.body.phone;
+    delete req.body.email;
+    return next();
+  }
+
+  return checkPermission('appointments.create')(req, res, next);
+};
+
 // ── Public Routes (Khách xem lịch trống) ──
 router.get('/available-slots', getAvailableSlots);
 
@@ -45,7 +71,7 @@ router.get('/available-slots', getAvailableSlots);
 router.use(protect);
 
 router.get('/my-appointments', getMyAppointments);
-router.post('/', validate(createAppointmentSchema), createAppointment);
+router.post('/', allowSelfBookingOrStaffCreate, validate(createAppointmentSchema), createAppointment);
 router.get('/today-stats', checkPermission('appointments.view'), getTodayStats);
 router.get('/', checkPermission('appointments.view'), getAppointments);
 

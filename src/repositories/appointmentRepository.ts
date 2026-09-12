@@ -97,13 +97,17 @@ export class AppointmentRepository {
     return Appointment.create(data, options);
   }
 
-  async update(appointment: AppointmentModel, data: Partial<AppointmentModel>): Promise<AppointmentModel> {
+  async update(
+    appointment: AppointmentModel,
+    data: Partial<AppointmentModel>,
+    options?: { transaction?: Transaction },
+  ): Promise<AppointmentModel> {
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {
         (appointment as any)[key] = value;
       }
     }
-    await appointment.save();
+    await appointment.save(options);
     return appointment;
   }
 

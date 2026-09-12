@@ -12,6 +12,8 @@ export const createProductSchema = z.object({
     importUnit: z.string().max(20).nullable().optional(),
     conversionRate: z.number().int().min(1, 'Tỉ lệ quy đổi phải >= 1').optional(),
     description: z.string().max(1000).nullable().optional(),
+    activeIngredient: z.string().max(200).nullable().optional(),
+    pregnancyContraindicated: z.boolean().optional(),
   }),
 });
 
@@ -26,6 +28,8 @@ export const updateProductSchema = z.object({
     importUnit: z.string().max(20).nullable().optional(),
     conversionRate: z.number().int().min(1, 'Tỉ lệ quy đổi phải >= 1').optional(),
     description: z.string().max(1000).nullable().optional(),
+    activeIngredient: z.string().max(200).nullable().optional(),
+    pregnancyContraindicated: z.boolean().optional(),
     isActive: z.boolean().optional(),
   }),
 });

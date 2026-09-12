@@ -14,6 +14,10 @@ export interface ProductModel extends Model<InferAttributes<ProductModel>, Infer
   importUnit: CreationOptional<string | null>;
   conversionRate: CreationOptional<number>;
   description: CreationOptional<string | null>;
+  /** Hoạt chất — dùng để đối chiếu với khai báo dị ứng trong hồ sơ bệnh nhân khi kê đơn. */
+  activeIngredient: CreationOptional<string | null>;
+  /** Chống chỉ định cho phụ nữ mang thai. */
+  pregnancyContraindicated: CreationOptional<boolean>;
   isActive: CreationOptional<boolean>;
   createdAt?: CreationOptional<Date>;
   updatedAt?: CreationOptional<Date>;
@@ -70,6 +74,16 @@ const Product = sequelize.define<ProductModel>('Product', {
   description: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  activeIngredient: {
+    type: DataTypes.STRING(200),
+    allowNull: true,
+    defaultValue: null,
+  },
+  pregnancyContraindicated: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
   },
   isActive: {
     type: DataTypes.BOOLEAN,
