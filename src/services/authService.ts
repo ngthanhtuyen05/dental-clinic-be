@@ -110,6 +110,7 @@ export const updateUserProfile = async (
     phone?: string | null;
     title?: string | null;
     academicTitle?: string | null;
+    avatar?: string | null;
     notifyAppointment?: boolean;
   }
 ): Promise<{ user: UserModel; permissions: string[] }> => {
@@ -122,18 +123,21 @@ export const updateUserProfile = async (
   if (profileData.phone !== undefined) user.phone = profileData.phone;
   await user.save();
 
-  // Cập nhật academicTitle trong StaffProfile nếu có
+  // Cập nhật academicTitle và ảnh đại diện trong StaffProfile nếu có
   const title = profileData.academicTitle || profileData.title;
-  if (title !== undefined) {
+  if (title !== undefined || profileData.avatar !== undefined) {
     const staffProfile = await StaffProfile.findOne({ where: { userId } });
     if (staffProfile) {
-      staffProfile.academicTitle = title;
+      if (title !== undefined) staffProfile.academicTitle = title;
+      if (profileData.avatar !== undefined) staffProfile.avatar = profileData.avatar;
       await staffProfile.save();
     }
   }
 
   const permissions = await getUserPermissions(user);
-  return { user, permissions };
+  // Nạp lại kèm hồ sơ để response trả về ảnh đại diện vừa lưu
+  const userWithProfile = (await userRepository.findByIdWithProfile(userId)) || user;
+  return { user: userWithProfile, permissions };
 };
 
 export const changeUserPassword = async (

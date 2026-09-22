@@ -53,6 +53,7 @@ export const updateProfileSchema = z.object({
     phone: z.string().optional().nullable(),
     title: z.string().optional().nullable(),
     academicTitle: z.string().optional().nullable(),
+    avatar: z.string().url('Ảnh đại diện phải là một URL hợp lệ').optional().nullable(),
     notifyAppointment: z.boolean().optional(),
   }),
 });

@@ -55,6 +55,7 @@ export class UserResponseDto {
   public role: string;
   public roleId: number | null;
   public permissions: string[];
+  public avatar: string | null;
   public createdAt: Date;
 
   constructor(user: UserModel | any, permissions: string[] = []) {
@@ -68,6 +69,8 @@ export class UserResponseDto {
       permissions.length > 0
         ? permissions
         : user.roleInfo?.permissions || user.permissions || [];
+    // Ảnh đại diện nằm ở bảng StaffProfile, chỉ có khi user được nạp kèm hồ sơ
+    this.avatar = user.staffProfile?.avatar || user.avatar || null;
     this.createdAt = user.createdAt || new Date();
   }
 

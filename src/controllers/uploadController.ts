@@ -7,9 +7,17 @@ import HttpStatus from '../constants/httpStatus.js';
 
 // Các thư mục được phép upload. Client chỉ gửi khóa, server quyết định đường dẫn thật,
 // để không ai tự ghi file vào thư mục tùy ý trong tài khoản Cloudinary.
-const ALLOWED_FOLDERS: Record<string, string> = {
-  xray: 'smilevia/xrays',
+//
+// permission = null nghĩa là chỉ cần đăng nhập: ảnh đại diện là thao tác tự phục vụ,
+// ai cũng đổi được ảnh của chính mình mà không cần quyền đặc biệt nào.
+export const UPLOAD_FOLDERS: Record<string, { path: string; permission: string | null }> = {
+  xray: { path: 'smilevia/xrays', permission: 'patients.medical_history' },
+  avatar: { path: 'smilevia/avatars', permission: null },
 };
+
+const ALLOWED_FOLDERS: Record<string, string> = Object.fromEntries(
+  Object.entries(UPLOAD_FOLDERS).map(([key, cfg]) => [key, cfg.path]),
+);
 
 /**
  * Cấp chữ ký tạm để client upload trực tiếp lên Cloudinary.

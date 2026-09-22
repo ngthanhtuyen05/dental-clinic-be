@@ -1,6 +1,7 @@
 import type { UserModel } from '../models/userModel.js';
 import type { CreationAttributes, Transaction } from 'sequelize';
 import User from '../models/userModel.js';
+import StaffProfile from '../models/staffProfileModel.js';
 
 export class UserRepository {
   async findAll(): Promise<UserModel[]> {
@@ -12,6 +13,20 @@ export class UserRepository {
   async findById(id: number, options?: { includePassword?: boolean }): Promise<UserModel | null> {
     return User.findByPk(id, {
       attributes: options?.includePassword ? undefined : { exclude: ['password'] },
+    });
+  }
+
+  /**
+   * Lấy user kèm StaffProfile (để đọc ảnh đại diện, học hàm...).
+   *
+   * Tách riêng khỏi findById vì findById được gọi ở middleware `protect` trên
+   * MỌI request đã đăng nhập — thêm join vào đó sẽ tốn một phép nối bảng vô ích
+   * cho toàn bộ API. Chỉ những chỗ thật sự cần hồ sơ mới gọi hàm này.
+   */
+  async findByIdWithProfile(id: number): Promise<UserModel | null> {
+    return User.findByPk(id, {
+      attributes: { exclude: ['password'] },
+      include: [{ model: StaffProfile, as: 'staffProfile' }],
     });
   }
 

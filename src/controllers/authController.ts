@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/authService.js';
+import { userRepository } from '../repositories/userRepository.js';
 import { UserResponseDto } from '../dtos/userDto.js';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import HttpStatus from '../constants/httpStatus.js';
@@ -26,9 +27,11 @@ export const getMe = async (req: AuthenticatedRequest, res: Response, next: Next
       return next(new AppError(Messages.AUTH.UNAUTHORIZED, HttpStatus.UNAUTHORIZED));
     }
     const permissions = await authService.getUserPermissions(req.user);
+    // Nạp kèm StaffProfile để lấy ảnh đại diện — `protect` chỉ nạp User cơ bản
+    const user = (await userRepository.findByIdWithProfile(req.user.id)) || req.user;
     res.status(HttpStatus.OK).json({
       status: 'success',
-      data: { user: new UserResponseDto(req.user, permissions) },
+      data: { user: new UserResponseDto(user, permissions) },
     });
   } catch (error) {
     next(error);
