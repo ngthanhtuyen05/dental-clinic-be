@@ -55,6 +55,11 @@ const env = {
   // Client & CORS
   CLIENT_URL: getEnvVar('CLIENT_URL', 'http://localhost:5173'),
 
+  // Cloudinary (lưu trữ hình ảnh: phim X-quang...)
+  CLOUDINARY_CLOUD_NAME: getEnvVar('CLOUDINARY_CLOUD_NAME', ''),
+  CLOUDINARY_API_KEY: getEnvVar('CLOUDINARY_API_KEY', ''),
+  CLOUDINARY_API_SECRET: getEnvVar('CLOUDINARY_API_SECRET', ''),
+
   // MoMo Payment Gateway
   MOMO_PARTNER_CODE: getEnvVar('MOMO_PARTNER_CODE', 'MOMO'),
   MOMO_ACCESS_KEY: getEnvVar('MOMO_ACCESS_KEY', 'F8BBA84267B81121'),

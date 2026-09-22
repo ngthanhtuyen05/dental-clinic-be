@@ -18,6 +18,7 @@ import settingRoutes from './settingRoutes.js';
 import labRoutes from './labRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import statisticsRoutes from './statisticsRoutes.js';
+import uploadRoutes from './uploadRoutes.js';
 
 const router = express.Router();
 
@@ -52,6 +53,7 @@ router.use('/settings', settingRoutes);
 router.use('/labo', labRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/statistics', statisticsRoutes);
+router.use('/upload', uploadRoutes);
 router.use('/', treatmentHistoryRoutes);
 
 export default router;
