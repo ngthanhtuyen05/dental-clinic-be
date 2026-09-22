@@ -4,6 +4,7 @@ import Messages from '../constants/messages.js';
 import type { AuthResponseDto, LoginRequestDto, RegisterUserRequestDto, TokenPairDto } from '../dtos/userDto.js';
 import { refreshTokenRepository } from '../repositories/refreshTokenRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
+import { staffRepository } from '../repositories/staffRepository.js';
 import { Role, StaffProfile } from '../models/index.js';
 import type { UserModel } from '../models/userModel.js';
 import AppError from '../utils/AppError.js';
@@ -123,15 +124,25 @@ export const updateUserProfile = async (
   if (profileData.phone !== undefined) user.phone = profileData.phone;
   await user.save();
 
-  // Cập nhật academicTitle và ảnh đại diện trong StaffProfile nếu có
+  // Cập nhật academicTitle và ảnh đại diện trong StaffProfile
   const title = profileData.academicTitle || profileData.title;
   if (title !== undefined || profileData.avatar !== undefined) {
-    const staffProfile = await StaffProfile.findOne({ where: { userId } });
-    if (staffProfile) {
-      if (title !== undefined) staffProfile.academicTitle = title;
-      if (profileData.avatar !== undefined) staffProfile.avatar = profileData.avatar;
-      await staffProfile.save();
+    let staffProfile = await StaffProfile.findOne({ where: { userId } });
+
+    // Tài khoản được seed (ví dụ admin) chưa có StaffProfile. Trước đây nhánh này
+    // bị bỏ qua im lặng khiến API báo thành công nhưng không lưu được gì,
+    // nên tạo hồ sơ tối thiểu để người dùng vẫn đổi được ảnh đại diện.
+    if (!staffProfile) {
+      staffProfile = await StaffProfile.create({
+        userId,
+        staffCode: await staffRepository.getNextCode(),
+        hireDate: new Date().toISOString().split('T')[0],
+      });
     }
+
+    if (title !== undefined) staffProfile.academicTitle = title;
+    if (profileData.avatar !== undefined) staffProfile.avatar = profileData.avatar;
+    await staffProfile.save();
   }
 
   const permissions = await getUserPermissions(user);
