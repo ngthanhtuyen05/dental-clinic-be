@@ -267,6 +267,9 @@ export const seedAdmin = async (): Promise<void> => {
 
     // Auto-seed Medicines if empty
     await seedMedicines();
+
+    // Auto-seed Dental Supplies / Needles / Gloves / Masks if empty
+    await seedInventorySupplies();
   } catch (error: any) {
     console.error('[Seeder] Error seeding accounts:', error.message);
   }
@@ -662,6 +665,305 @@ export const seedMedicines = async (): Promise<void> => {
     }
   } catch (error: any) {
     console.error('[Seeder] Error seeding medicines:', error.message);
+  }
+};
+
+/**
+ * Seed vật tư tiêu hao cho 4 danh mục còn lại ngoài Thuốc: Vật tư nha khoa, Kim tiêm, Găng
+ * tay, Khẩu trang — cùng nguyên tắc idempotent theo từng `code` như `seedMedicines`, để chạy
+ * lại seeder nhiều lần (thêm item mới vào mảng) không tạo trùng các item đã có.
+ */
+export const seedInventorySupplies = async (): Promise<void> => {
+  type SupplyItem = {
+    name: string;
+    unit: ProductUnit;
+    sellingPrice: number;
+    importPrice: number;
+    minStock: number;
+    initialQty: number;
+    description: string;
+  };
+
+  const categories: { category: InventoryCategory; prefix: string; items: SupplyItem[] }[] = [
+    {
+      category: InventoryCategory.DENTAL_SUPPLY,
+      prefix: 'DNS',
+      items: [
+        {
+          name: 'Composite trám răng Filtek Z250',
+          unit: ProductUnit.LO,
+          sellingPrice: 350000,
+          importPrice: 220000,
+          minStock: 10,
+          initialQty: 40,
+          description: 'Vật liệu trám thẩm mỹ ánh trùng hợp, dùng cho trám răng cửa và răng hàm.',
+        },
+        {
+          name: 'Xi măng Glass Ionomer (GIC)',
+          unit: ProductUnit.LO,
+          sellingPrice: 180000,
+          importPrice: 110000,
+          minStock: 10,
+          initialQty: 30,
+          description: 'Vật liệu trám/gắn răng sứ, giải phóng Fluor bảo vệ răng.',
+        },
+        {
+          name: 'Vật liệu trám tạm Cavit',
+          unit: ProductUnit.LO,
+          sellingPrice: 95000,
+          importPrice: 55000,
+          minStock: 10,
+          initialQty: 30,
+          description: 'Trám tạm giữa các buổi điều trị tủy răng.',
+        },
+        {
+          name: 'Bông gòn nha khoa (cotton roll)',
+          unit: ProductUnit.GOI,
+          sellingPrice: 15000,
+          importPrice: 8000,
+          minStock: 30,
+          initialQty: 150,
+          description: 'Cách ly nước bọt khi trám răng, lấy dấu.',
+        },
+        {
+          name: 'Gạc y tế vô trùng',
+          unit: ProductUnit.GOI,
+          sellingPrice: 12000,
+          importPrice: 6500,
+          minStock: 30,
+          initialQty: 150,
+          description: 'Cầm máu và vệ sinh vết thương sau tiểu phẫu.',
+        },
+        {
+          name: 'Chỉ khâu phẫu thuật (silk suture)',
+          unit: ProductUnit.HOP,
+          sellingPrice: 220000,
+          importPrice: 140000,
+          minStock: 5,
+          initialQty: 20,
+          description: 'Khâu đóng vết thương sau nhổ răng khôn, cấy ghép Implant.',
+        },
+        {
+          name: 'Chỉ co nướu (retraction cord)',
+          unit: ProductUnit.CUON,
+          sellingPrice: 85000,
+          importPrice: 50000,
+          minStock: 10,
+          initialQty: 30,
+          description: 'Đẩy nướu lộ cùi răng khi lấy dấu làm răng sứ.',
+        },
+        {
+          name: 'Vật liệu lấy dấu Alginate',
+          unit: ProductUnit.HOP,
+          sellingPrice: 150000,
+          importPrice: 95000,
+          minStock: 5,
+          initialQty: 20,
+          description: 'Lấy dấu hàm răng để chế tác mẫu thạch cao/phục hình.',
+        },
+        {
+          name: 'Mũi khoan nha khoa (dental bur)',
+          unit: ProductUnit.HOP,
+          sellingPrice: 280000,
+          importPrice: 180000,
+          minStock: 5,
+          initialQty: 25,
+          description: 'Bộ mũi khoan kim cương/carbide dùng mài răng, sửa soạn cùi.',
+        },
+        {
+          name: 'Đầu trâm nội nha (endo file)',
+          unit: ProductUnit.HOP,
+          sellingPrice: 320000,
+          importPrice: 210000,
+          minStock: 5,
+          initialQty: 15,
+          description: 'Dụng cụ tạo hình và làm sạch ống tủy khi điều trị nội nha.',
+        },
+        {
+          name: 'Yếm giấy trải ghế nha khoa (bib)',
+          unit: ProductUnit.GOI,
+          sellingPrice: 45000,
+          importPrice: 28000,
+          minStock: 15,
+          initialQty: 60,
+          description: 'Yếm giấy chống thấm dùng 1 lần cho bệnh nhân.',
+        },
+        {
+          name: 'Chỉ nha khoa (dental floss)',
+          unit: ProductUnit.HOP,
+          sellingPrice: 25000,
+          importPrice: 14000,
+          minStock: 20,
+          initialQty: 80,
+          description: 'Phát cho bệnh nhân sau khi vệ sinh/lấy cao răng để hướng dẫn chăm sóc tại nhà.',
+        },
+      ],
+    },
+    {
+      category: InventoryCategory.NEEDLE,
+      prefix: 'NDL',
+      items: [
+        {
+          name: 'Kim tiêm nha khoa ngắn 27G',
+          unit: ProductUnit.HOP,
+          sellingPrice: 120000,
+          importPrice: 75000,
+          minStock: 10,
+          initialQty: 40,
+          description: 'Kim gây tê tại chỗ cho các thủ thuật đơn giản (trám, lấy cao răng).',
+        },
+        {
+          name: 'Kim tiêm nha khoa dài 25G',
+          unit: ProductUnit.HOP,
+          sellingPrice: 135000,
+          importPrice: 85000,
+          minStock: 10,
+          initialQty: 40,
+          description: 'Kim gây tê vùng, dùng cho nhổ răng hàm và tiểu phẫu.',
+        },
+        {
+          name: 'Kim tiêm 3ml dùng 1 lần',
+          unit: ProductUnit.HOP,
+          sellingPrice: 55000,
+          importPrice: 32000,
+          minStock: 15,
+          initialQty: 60,
+          description: 'Kim tiêm thông thường dùng pha/tiêm thuốc hỗ trợ.',
+        },
+        {
+          name: 'Ống tiêm nha khoa (carpule syringe)',
+          unit: ProductUnit.CAI,
+          sellingPrice: 450000,
+          importPrice: 300000,
+          minStock: 3,
+          initialQty: 10,
+          description: 'Ống bơm tiêm chuyên dụng dùng với ống thuốc tê carpule (Lidocain, Articaine).',
+        },
+      ],
+    },
+    {
+      category: InventoryCategory.GLOVE,
+      prefix: 'GLV',
+      items: [
+        {
+          name: 'Găng tay Latex y tế size S',
+          unit: ProductUnit.HOP,
+          sellingPrice: 95000,
+          importPrice: 60000,
+          minStock: 20,
+          initialQty: 80,
+          description: 'Hộp 100 chiếc, dùng 1 lần, cho nhân viên tay nhỏ.',
+        },
+        {
+          name: 'Găng tay Latex y tế size M',
+          unit: ProductUnit.HOP,
+          sellingPrice: 95000,
+          importPrice: 60000,
+          minStock: 30,
+          initialQty: 120,
+          description: 'Hộp 100 chiếc, dùng 1 lần, kích cỡ phổ biến nhất.',
+        },
+        {
+          name: 'Găng tay Latex y tế size L',
+          unit: ProductUnit.HOP,
+          sellingPrice: 95000,
+          importPrice: 60000,
+          minStock: 20,
+          initialQty: 80,
+          description: 'Hộp 100 chiếc, dùng 1 lần, cho nhân viên tay lớn.',
+        },
+        {
+          name: 'Găng tay Nitrile không bột',
+          unit: ProductUnit.HOP,
+          sellingPrice: 130000,
+          importPrice: 85000,
+          minStock: 15,
+          initialQty: 50,
+          description: 'Thay thế cho nhân viên/bệnh nhân dị ứng Latex.',
+        },
+      ],
+    },
+    {
+      category: InventoryCategory.MASK,
+      prefix: 'MSK',
+      items: [
+        {
+          name: 'Khẩu trang y tế 3 lớp',
+          unit: ProductUnit.HOP,
+          sellingPrice: 45000,
+          importPrice: 25000,
+          minStock: 30,
+          initialQty: 150,
+          description: 'Hộp 50 chiếc, dùng hàng ngày cho toàn bộ nhân viên phòng khám.',
+        },
+        {
+          name: 'Khẩu trang N95',
+          unit: ProductUnit.HOP,
+          sellingPrice: 180000,
+          importPrice: 120000,
+          minStock: 10,
+          initialQty: 40,
+          description: 'Khẩu trang lọc bụi mịn cao cấp, dùng khi khoan mài/thủ thuật phát sinh nhiều khí dung.',
+        },
+        {
+          name: 'Mặt nạ chống giọt bắn (face shield)',
+          unit: ProductUnit.CAI,
+          sellingPrice: 35000,
+          importPrice: 20000,
+          minStock: 15,
+          initialQty: 50,
+          description: 'Bảo hộ mắt và mặt cho bác sĩ khi thực hiện thủ thuật phát sinh khí dung.',
+        },
+      ],
+    },
+  ];
+
+  const today = new Date();
+  let totalCreated = 0;
+
+  for (const { category, prefix, items } of categories) {
+    try {
+      let seq = 1;
+      for (const item of items) {
+        const code = `${prefix}-${String(seq).padStart(3, '0')}`;
+        seq += 1;
+
+        const existing = await Product.findOne({ where: { code } });
+        if (existing) continue;
+
+        const product = await Product.create({
+          code,
+          name: item.name,
+          category,
+          unit: item.unit,
+          minStock: item.minStock,
+          sellingPrice: item.sellingPrice,
+          description: item.description,
+          isActive: true,
+        } as any);
+
+        const expiryDate = new Date(today);
+        expiryDate.setMonth(expiryDate.getMonth() + 24);
+
+        await StockBatch.create({
+          productId: product.id,
+          batchNumber: `LOT-${today.getFullYear()}-${code}`,
+          initialQty: item.initialQty,
+          currentQty: item.initialQty,
+          importPrice: item.importPrice,
+          manufacturingDate: today,
+          expiryDate,
+        } as any);
+
+        totalCreated += 1;
+      }
+    } catch (error: any) {
+      console.error(`[Seeder] Error seeding category '${category}':`, error.message);
+    }
+  }
+
+  if (totalCreated > 0) {
+    console.log(`[Seeder] Seeded ${totalCreated} new supply item(s) (dental supply/needle/glove/mask) with stock batches.`);
   }
 };
 
