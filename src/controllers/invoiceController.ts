@@ -20,10 +20,11 @@ export const createInvoice = async (req: AuthenticatedRequest, res: Response, ne
 
 export const getAllInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { patientProfileId, status } = req.query;
+    const { patientProfileId, status, appointmentId } = req.query;
     const invoices = await invoiceService.getAllInvoices({
       patientProfileId: patientProfileId ? Number(patientProfileId) : undefined,
       status: status as string,
+      appointmentId: appointmentId ? Number(appointmentId) : undefined,
     });
 
     res.status(HttpStatus.OK).json({

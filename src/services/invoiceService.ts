@@ -1,6 +1,7 @@
 import crypto from 'crypto';
+import { Op } from 'sequelize';
 import { invoiceRepository } from '../repositories/invoiceRepository.js';
-import { TreatmentHistory } from '../models/index.js';
+import { TreatmentHistory, Invoice } from '../models/index.js';
 import { InvoiceStatus, PaymentMethod } from '../constants/enums.js';
 import { createMoMoPaymentUrl, verifyMoMoSignature } from './momoService.js';
 import AppError from '../utils/AppError.js';
@@ -27,6 +28,25 @@ export const createInvoice = async (
     items,
     notes,
   } = input;
+
+  // Chặn tạo trùng hóa đơn cho cùng 1 lịch hẹn — nhân viên dễ quên đã lập hóa đơn từ trước
+  // (đặc biệt khi "Tạo hóa đơn" có 3 điểm bấm khác nhau: danh sách, drawer, trang chi tiết)
+  // và tạo thêm 1 hóa đơn thứ 2 cho cùng ca khám, gây thu tiền trùng/lệch sổ sách. Hóa đơn đã
+  // hủy (`cancelled`) không tính, vì đó là trường hợp hợp lệ để lập hóa đơn thay thế.
+  if (appointmentId) {
+    const existing = await Invoice.findOne({
+      where: {
+        appointmentId: Number(appointmentId),
+        status: { [Op.ne]: InvoiceStatus.CANCELLED },
+      },
+    });
+    if (existing) {
+      throw new AppError(
+        `Lịch hẹn này đã có hóa đơn ${existing.code}. Vui lòng mở hóa đơn đó để tiếp tục thay vì tạo mới.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 
   let calculatedAmount = Number(totalAmount) || 0;
   const discount = Number(discountAmount) || 0;
@@ -78,6 +98,7 @@ export const createInvoice = async (
 export const getAllInvoices = async (filters: {
   patientProfileId?: number;
   status?: string;
+  appointmentId?: number;
 }): Promise<InvoiceModel[]> => {
   const where: any = {};
   if (filters.patientProfileId) {
@@ -85,6 +106,9 @@ export const getAllInvoices = async (filters: {
   }
   if (filters.status) {
     where.status = filters.status;
+  }
+  if (filters.appointmentId) {
+    where.appointmentId = Number(filters.appointmentId);
   }
 
   return invoiceRepository.findAll({ where });
