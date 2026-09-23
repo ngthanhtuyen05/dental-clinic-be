@@ -4,12 +4,10 @@ import Service from '../models/serviceModel.js';
 import { Prescription, PrescriptionItem, Product, StockBatch } from '../models/index.js';
 import type { AppointmentModel } from '../models/appointmentModel.js';
 import { Op, type WhereOptions, type CreationAttributes, type Transaction } from 'sequelize';
-import type { AppointmentQueryParamsDto } from '../dtos/appointmentDto.js';
 
 export class AppointmentRepository {
   async findAndCount(options: {
     where: WhereOptions;
-    patientWhere?: WhereOptions;
     limit: number;
     offset: number;
   }) {
@@ -19,7 +17,6 @@ export class AppointmentRepository {
         {
           model: User,
           as: 'patient',
-          where: options.patientWhere || undefined,
           attributes: ['id', 'fullName', 'email', 'phone'],
         },
         {
@@ -113,58 +110,6 @@ export class AppointmentRepository {
 
   async delete(appointment: AppointmentModel): Promise<void> {
     await appointment.destroy();
-  }
-
-  buildWhereOptions(query: AppointmentQueryParamsDto): { where: WhereOptions; patientWhere?: WhereOptions } {
-    const where: any = {};
-    let patientWhere: WhereOptions | undefined = undefined;
-
-    // Lọc theo status
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    // Lọc theo type
-    if (query.type) {
-      where.type = query.type;
-    }
-
-    // Lọc theo doctorId
-    if (query.doctorId) {
-      where.dentistId = query.doctorId;
-    }
-
-    // Lọc theo cụ thể ngày
-    if (query.appointmentDate) {
-      where.appointmentDate = query.appointmentDate;
-    }
-
-    // Lọc theo khoảng ngày
-    if (query.dateFrom || query.dateTo) {
-      const dateCond: any = {};
-      if (query.dateFrom) dateCond[Op.gte] = query.dateFrom;
-      if (query.dateTo) dateCond[Op.lte] = query.dateTo;
-      where.appointmentDate = dateCond;
-    }
-
-    // Tìm kiếm từ khóa (trên mã lịch hẹn hoặc thông tin bệnh nhân)
-    if (query.keyword?.trim()) {
-      const kw = `%${query.keyword.trim()}%`;
-      
-      // Tìm theo code hoặc join bảng patient tìm theo fullName/phone
-      where[Op.or] = [
-        { code: { [Op.like]: kw } },
-      ];
-
-      patientWhere = {
-        [Op.or]: [
-          { fullName: { [Op.like]: kw } },
-          { phone: { [Op.like]: kw } },
-        ],
-      } as any;
-    }
-
-    return { where, patientWhere };
   }
 
   async countByStatus(where: WhereOptions): Promise<number> {

@@ -67,12 +67,14 @@ export const getAllAppointments = async (params: AppointmentQueryParamsDto): Pro
     if (dateTo) where.appointmentDate[Op.lte] = dateTo;
   }
 
-  if (keyword) {
+  if (keyword?.trim()) {
     const kw = `%${keyword.trim()}%`;
     where[Op.or] = [
       { code: { [Op.like]: kw } },
       { chiefComplaint: { [Op.like]: kw } },
       { notes: { [Op.like]: kw } },
+      { '$patient.fullName$': { [Op.like]: kw } },
+      { '$patient.phone$': { [Op.like]: kw } },
     ];
   }
 
