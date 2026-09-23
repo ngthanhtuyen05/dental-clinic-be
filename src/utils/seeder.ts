@@ -7,7 +7,9 @@ import Supplier from '../models/supplierModel.js';
 import LabOrder from '../models/labOrderModel.js';
 import LabOrderHistory from '../models/labOrderHistoryModel.js';
 import LabWarrantyCard from '../models/labWarrantyCardModel.js';
-import { UserRole } from '../constants/enums.js';
+import Product from '../models/productModel.js';
+import StockBatch from '../models/stockBatchModel.js';
+import { UserRole, InventoryCategory, ProductUnit } from '../constants/enums.js';
 import env from '../config/env.js';
 import { hashPassword } from './password.js';
 
@@ -262,6 +264,9 @@ export const seedAdmin = async (): Promise<void> => {
 
     // Auto-seed Labo Data if empty
     await seedLaboData();
+
+    // Auto-seed Medicines if empty
+    await seedMedicines();
   } catch (error: any) {
     console.error('[Seeder] Error seeding accounts:', error.message);
   }
@@ -330,6 +335,333 @@ export const seedSettings = async (): Promise<void> => {
     }
   } catch (error: any) {
     console.error('[Seeder] Error seeding settings:', error.message);
+  }
+};
+
+/**
+ * Seed danh mục thuốc nha khoa thường dùng kèm 1 lô tồn kho ban đầu cho mỗi thuốc, để màn
+ * "Kê đơn thuốc" có dữ liệu thật để chọn thay vì danh sách rỗng. `activeIngredient` được điền
+ * đúng hoạt chất để đối chiếu với khai báo dị ứng trong hồ sơ bệnh nhân (VD: dị ứng Penicillin
+ * sẽ cảnh báo với mọi thuốc có gốc Amoxicillin/Augmentin bên dưới).
+ */
+export const seedMedicines = async (): Promise<void> => {
+  try {
+    const medicines: {
+      name: string;
+      unit: ProductUnit;
+      sellingPrice: number;
+      importPrice: number;
+      minStock: number;
+      initialQty: number;
+      activeIngredient: string;
+      pregnancyContraindicated?: boolean;
+      description: string;
+    }[] = [
+      {
+        name: 'Amoxicillin 500mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 2500,
+        importPrice: 1500,
+        minStock: 100,
+        initialQty: 800,
+        activeIngredient: 'Amoxicillin (nhóm Penicillin)',
+        description: 'Kháng sinh phổ rộng, dùng trong nhiễm khuẩn răng miệng, viêm nha chu.',
+      },
+      {
+        name: 'Augmentin 625mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 8500,
+        importPrice: 6000,
+        minStock: 60,
+        initialQty: 400,
+        activeIngredient: 'Amoxicillin + Acid Clavulanic (nhóm Penicillin)',
+        description: 'Kháng sinh phối hợp, dùng khi nhiễm khuẩn nặng hoặc đã kháng Amoxicillin đơn thuần.',
+      },
+      {
+        name: 'Metronidazol 250mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 1200,
+        importPrice: 700,
+        minStock: 100,
+        initialQty: 600,
+        activeIngredient: 'Metronidazol',
+        pregnancyContraindicated: true,
+        description: 'Kháng sinh diệt vi khuẩn kỵ khí, thường phối hợp điều trị viêm nha chu, áp xe răng.',
+      },
+      {
+        name: 'Clindamycin 300mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 4500,
+        importPrice: 3000,
+        minStock: 50,
+        initialQty: 300,
+        activeIngredient: 'Clindamycin',
+        description: 'Kháng sinh thay thế cho bệnh nhân dị ứng Penicillin.',
+      },
+      {
+        name: 'Cefuroxim 500mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 5500,
+        importPrice: 3800,
+        minStock: 50,
+        initialQty: 300,
+        activeIngredient: 'Cefuroxim (nhóm Cephalosporin)',
+        description: 'Kháng sinh Cephalosporin thế hệ 2, dùng cho nhiễm khuẩn răng miệng mức độ vừa.',
+      },
+      {
+        name: 'Erythromycin 500mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 3000,
+        importPrice: 2000,
+        minStock: 40,
+        initialQty: 200,
+        activeIngredient: 'Erythromycin (nhóm Macrolid)',
+        description: 'Kháng sinh thay thế khi bệnh nhân dị ứng cả Penicillin và Cephalosporin.',
+      },
+      {
+        name: 'Paracetamol 500mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 800,
+        importPrice: 400,
+        minStock: 150,
+        initialQty: 1000,
+        activeIngredient: 'Paracetamol',
+        description: 'Giảm đau, hạ sốt thông thường sau thủ thuật nha khoa.',
+      },
+      {
+        name: 'Alaxan (Paracetamol + Ibuprofen)',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 2200,
+        importPrice: 1400,
+        minStock: 100,
+        initialQty: 500,
+        activeIngredient: 'Paracetamol + Ibuprofen',
+        description: 'Giảm đau kết hợp, dùng sau nhổ răng khôn hoặc tiểu phẫu.',
+      },
+      {
+        name: 'Ibuprofen 400mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 1500,
+        importPrice: 900,
+        minStock: 100,
+        initialQty: 500,
+        activeIngredient: 'Ibuprofen',
+        pregnancyContraindicated: true,
+        description: 'Kháng viêm, giảm đau không steroid (NSAID).',
+      },
+      {
+        name: 'Diclofenac 50mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 1800,
+        importPrice: 1100,
+        minStock: 60,
+        initialQty: 300,
+        activeIngredient: 'Diclofenac',
+        pregnancyContraindicated: true,
+        description: 'Kháng viêm giảm đau NSAID, dùng khi sưng đau nhiều sau thủ thuật.',
+      },
+      {
+        name: 'Alpha Choay 4.2mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 900,
+        importPrice: 500,
+        minStock: 100,
+        initialQty: 600,
+        activeIngredient: 'Alphachymotrypsin',
+        description: 'Kháng viêm, giảm phù nề sau nhổ răng/tiểu phẫu.',
+      },
+      {
+        name: 'Medrol 16mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 3500,
+        importPrice: 2200,
+        minStock: 30,
+        initialQty: 150,
+        activeIngredient: 'Methylprednisolon',
+        description: 'Corticoid kháng viêm mạnh, dùng ngắn ngày cho ca sưng nề nhiều (cấy ghép Implant, nhổ răng khôn).',
+      },
+      {
+        name: 'Kháng sinh Doxycyclin 100mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 2000,
+        importPrice: 1200,
+        minStock: 40,
+        initialQty: 200,
+        activeIngredient: 'Doxycyclin (nhóm Tetracyclin)',
+        pregnancyContraindicated: true,
+        description: 'Kháng sinh hỗ trợ điều trị viêm nha chu mạn tính. Chống chỉ định cho trẻ dưới 8 tuổi và phụ nữ mang thai do ảnh hưởng men răng thai nhi.',
+      },
+      {
+        name: 'Chlorhexidine 0.12% (súc miệng)',
+        unit: ProductUnit.CHAI,
+        sellingPrice: 45000,
+        importPrice: 28000,
+        minStock: 20,
+        initialQty: 80,
+        activeIngredient: 'Chlorhexidine Gluconate',
+        description: 'Dung dịch súc miệng sát khuẩn, dùng sau tiểu phẫu hoặc điều trị nha chu.',
+      },
+      {
+        name: 'Betadine súc miệng',
+        unit: ProductUnit.CHAI,
+        sellingPrice: 38000,
+        importPrice: 24000,
+        minStock: 20,
+        initialQty: 80,
+        activeIngredient: 'Povidon-Iod',
+        description: 'Dung dịch súc miệng sát khuẩn phổ rộng.',
+      },
+      {
+        name: 'Lidocain 2% gel bôi tê',
+        unit: ProductUnit.LO,
+        sellingPrice: 65000,
+        importPrice: 42000,
+        minStock: 15,
+        initialQty: 50,
+        activeIngredient: 'Lidocain',
+        description: 'Gel gây tê tại chỗ trước khi tiêm tê hoặc lấy cao răng ở vùng nhạy cảm.',
+      },
+      {
+        name: 'Vitamin 3B (B1-B6-B12)',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 700,
+        importPrice: 350,
+        minStock: 100,
+        initialQty: 500,
+        activeIngredient: 'Thiamin + Pyridoxin + Cyanocobalamin',
+        description: 'Bổ sung vitamin nhóm B hỗ trợ phục hồi sau thủ thuật.',
+      },
+      {
+        name: 'Diazepam 5mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 1500,
+        importPrice: 900,
+        minStock: 20,
+        initialQty: 100,
+        activeIngredient: 'Diazepam',
+        pregnancyContraindicated: true,
+        description: 'An thần nhẹ, dùng trước tiểu phẫu cho bệnh nhân lo âu quá mức (cần chỉ định của bác sĩ).',
+      },
+      {
+        name: 'Efferalgan sủi 500mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 1800,
+        importPrice: 1100,
+        minStock: 60,
+        initialQty: 300,
+        activeIngredient: 'Paracetamol (dạng sủi)',
+        description: 'Giảm đau hạ sốt dạng sủi bọt, hấp thu nhanh hơn viên nén thường.',
+      },
+      {
+        name: 'Lidocain 2% ống tiêm',
+        unit: ProductUnit.ONG,
+        sellingPrice: 15000,
+        importPrice: 9000,
+        minStock: 30,
+        initialQty: 150,
+        activeIngredient: 'Lidocain HCl',
+        description: 'Thuốc tê tiêm tại chỗ trước khi nhổ răng, trám răng, lấy tủy.',
+      },
+      {
+        name: 'Articaine 4% + Adrenaline ống tiêm',
+        unit: ProductUnit.ONG,
+        sellingPrice: 25000,
+        importPrice: 16000,
+        minStock: 30,
+        initialQty: 150,
+        activeIngredient: 'Articaine + Adrenaline (Epinephrine)',
+        description: 'Thuốc tê nha khoa phổ biến nhất hiện nay, tác dụng nhanh và mạnh hơn Lidocain.',
+      },
+      {
+        name: 'Naproxen 250mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 2000,
+        importPrice: 1200,
+        minStock: 60,
+        initialQty: 300,
+        activeIngredient: 'Naproxen',
+        pregnancyContraindicated: true,
+        description: 'Kháng viêm giảm đau NSAID, tác dụng kéo dài hơn Ibuprofen.',
+      },
+      {
+        name: 'Tranexamic acid 500mg',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 3000,
+        importPrice: 1800,
+        minStock: 30,
+        initialQty: 150,
+        activeIngredient: 'Tranexamic acid',
+        description: 'Hỗ trợ cầm máu sau nhổ răng, đặc biệt với bệnh nhân dễ chảy máu kéo dài.',
+      },
+      {
+        name: 'Nystatin 500.000 IU (viên ngậm)',
+        unit: ProductUnit.VIEN,
+        sellingPrice: 4000,
+        importPrice: 2500,
+        minStock: 20,
+        initialQty: 100,
+        activeIngredient: 'Nystatin',
+        description: 'Kháng nấm, điều trị nấm miệng (thường gặp sau dùng kháng sinh dài ngày).',
+      },
+      {
+        name: 'Amoxicillin 250mg cốm pha hỗn dịch (trẻ em)',
+        unit: ProductUnit.GOI,
+        sellingPrice: 3500,
+        importPrice: 2200,
+        minStock: 30,
+        initialQty: 150,
+        activeIngredient: 'Amoxicillin (nhóm Penicillin)',
+        description: 'Dạng cốm pha hỗn dịch uống cho bệnh nhi chưa uống được viên nén.',
+      },
+    ];
+
+    const today = new Date();
+    let seq = 1;
+    let createdCount = 0;
+
+    for (const med of medicines) {
+      const code = `MED-${String(seq).padStart(3, '0')}`;
+      seq += 1;
+
+      // Idempotent theo từng thuốc (không chặn cả hàm khi đã seed 1 lần trước đó) — lần seed
+      // sau chỉ chèn thêm những thuốc mới thêm vào danh sách, không đụng tới thuốc đã có.
+      const existing = await Product.findOne({ where: { code } });
+      if (existing) continue;
+
+      const product = await Product.create({
+        code,
+        name: med.name,
+        category: InventoryCategory.MEDICINE,
+        unit: med.unit,
+        minStock: med.minStock,
+        sellingPrice: med.sellingPrice,
+        description: med.description,
+        activeIngredient: med.activeIngredient,
+        pregnancyContraindicated: med.pregnancyContraindicated || false,
+        isActive: true,
+      } as any);
+
+      const expiryDate = new Date(today);
+      expiryDate.setMonth(expiryDate.getMonth() + 18);
+
+      await StockBatch.create({
+        productId: product.id,
+        batchNumber: `LOT-${today.getFullYear()}-${code}`,
+        initialQty: med.initialQty,
+        currentQty: med.initialQty,
+        importPrice: med.importPrice,
+        manufacturingDate: today,
+        expiryDate,
+      } as any);
+
+      createdCount += 1;
+    }
+
+    if (createdCount > 0) {
+      console.log(`[Seeder] Seeded ${createdCount} new medicine(s) with initial stock batches.`);
+    }
+  } catch (error: any) {
+    console.error('[Seeder] Error seeding medicines:', error.message);
   }
 };
 
