@@ -15,6 +15,7 @@ import {
 } from '../controllers/labController.js';
 import { validate } from '../middlewares/validate.js';
 import { protect } from '../middlewares/authMiddleware.js';
+import { checkPermission } from '../middlewares/permissionMiddleware.js';
 import {
   createLabOrderSchema,
   updateLabOrderSchema,
@@ -30,28 +31,28 @@ router.use(protect);
 
 // ── 1. Đơn hàng Labo ──
 router.route('/orders')
-  .get(getAllOrders)
-  .post(validate(createLabOrderSchema), createOrder);
+  .get(checkPermission('labo.view'), getAllOrders)
+  .post(checkPermission('labo.create'), validate(createLabOrderSchema), createOrder);
 
 router.route('/orders/:id')
-  .get(getOrderById)
-  .patch(validate(updateLabOrderSchema), updateOrder)
-  .delete(deleteOrder);
+  .get(checkPermission('labo.view'), getOrderById)
+  .patch(checkPermission('labo.edit'), validate(updateLabOrderSchema), updateOrder)
+  .delete(checkPermission('labo.edit'), deleteOrder);
 
-router.patch('/orders/:id/status', validate(updateLabOrderStatusSchema), updateOrderStatus);
-router.patch('/orders/:id/payment', validate(updateLabOrderPaymentSchema), updateOrderPayment);
+router.patch('/orders/:id/status', checkPermission('labo.edit'), validate(updateLabOrderStatusSchema), updateOrderStatus);
+router.patch('/orders/:id/payment', checkPermission('labo.reconciliation'), validate(updateLabOrderPaymentSchema), updateOrderPayment);
 
 // ── 2. Xưởng đối tác ──
-router.get('/suppliers', getSuppliers);
+router.get('/suppliers', checkPermission('labo.view'), getSuppliers);
 
 // ── 3. Thẻ bảo hành phục hình ──
 router.route('/warranties')
-  .get(getWarrantyCards)
-  .post(validate(createLabWarrantyCardSchema), createWarrantyCard);
+  .get(checkPermission('labo.warranty'), getWarrantyCards)
+  .post(checkPermission('labo.warranty'), validate(createLabWarrantyCardSchema), createWarrantyCard);
 
-router.get('/warranties/:id', getWarrantyCardById);
+router.get('/warranties/:id', checkPermission('labo.warranty'), getWarrantyCardById);
 
 // ── 4. Đối soát công nợ ──
-router.get('/reconciliation', getReconciliation);
+router.get('/reconciliation', checkPermission('labo.reconciliation'), getReconciliation);
 
 export default router;
