@@ -12,14 +12,12 @@ export const getAppointmentStats = async (req: Request, res: Response, next: Nex
     const startDate = (req.query.startDate as string) || (req.query.dateFrom as string) || undefined;
     const endDate = (req.query.endDate as string) || (req.query.dateTo as string) || undefined;
     const dentistId = req.query.dentistId ? (req.query.dentistId === 'all' ? 'all' : Number(req.query.dentistId)) : undefined;
-    const branch = (req.query.branch as string) || 'all';
 
     const data = await statisticsService.getAppointmentStatistics({
       timeRange,
       startDate,
       endDate,
       dentistId,
-      branch,
     });
 
     res.status(HttpStatus.OK).json({

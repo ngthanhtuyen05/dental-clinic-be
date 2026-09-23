@@ -7,7 +7,6 @@ export interface DateRangeFilter {
   startDate?: string;
   endDate?: string;
   dentistId?: number | 'all';
-  branch?: string;
 }
 
 export interface ClinicalFilter {
