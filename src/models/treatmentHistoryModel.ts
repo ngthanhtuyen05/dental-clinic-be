@@ -10,6 +10,8 @@ export interface TreatmentHistoryModel extends Model<InferAttributes<TreatmentHi
   diagnosis: string;
   treatment: string;
   cost: number;
+  /** Số lượng đơn vị đã điều trị thực tế (VD: số răng đã bọc sứ) — dùng để tính cost = Service.price × treatedQuantity. */
+  treatedQuantity: CreationOptional<number>;
   treatmentDate: Date;
   notes: CreationOptional<string | null>;
   createdAt?: CreationOptional<Date>;
@@ -64,6 +66,11 @@ const TreatmentHistory = sequelize.define<TreatmentHistoryModel>('TreatmentHisto
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false,
     defaultValue: 0.00,
+  },
+  treatedQuantity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
   },
   treatmentDate: {
     type: DataTypes.DATE,

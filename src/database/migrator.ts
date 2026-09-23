@@ -13,6 +13,7 @@ import * as m010 from './migrations/010_add_prescription_id_to_stock_transaction
 import * as m011 from './migrations/011_link_treatment_history_to_appointment.js';
 import * as m012 from './migrations/012_add_clinical_safety_fields_to_products.js';
 import * as m013 from './migrations/013_backfill_treatment_history_for_completed_appointments.js';
+import * as m014 from './migrations/014_add_treated_quantity_to_treatment_histories.js';
 
 export interface MigrationModule {
   name: string;
@@ -34,6 +35,7 @@ export const registeredMigrations: MigrationModule[] = [
   m011,
   m012,
   m013,
+  m014,
 ];
 
 

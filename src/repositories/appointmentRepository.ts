@@ -27,7 +27,7 @@ export class AppointmentRepository {
         {
           model: Service,
           as: 'service',
-          attributes: ['id', 'name', 'price', 'durationMinutes'],
+          attributes: ['id', 'name', 'price', 'durationMinutes', 'unit'],
         },
         {
           model: User,
@@ -50,7 +50,7 @@ export class AppointmentRepository {
       include: [
         { model: User, as: 'patient', attributes: ['id', 'fullName', 'email', 'phone'] },
         { model: User, as: 'dentist', attributes: ['id', 'fullName', 'email'] },
-        { model: Service, as: 'service', attributes: ['id', 'name', 'price', 'durationMinutes'] },
+        { model: Service, as: 'service', attributes: ['id', 'name', 'price', 'durationMinutes', 'unit'] },
         { model: User, as: 'creator', attributes: ['id', 'fullName'] },
         {
           model: Prescription,

@@ -34,5 +34,7 @@ export const updateAppointmentStatusSchema = z.object({
   body: z.object({
     status: z.nativeEnum(AppointmentStatus, { message: 'Invalid status value' }),
     cancelReason: z.string().optional(),
+    notes: z.string().optional(),
+    treatedQuantity: z.number().int().positive().optional(),
   }),
 });

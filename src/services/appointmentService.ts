@@ -414,7 +414,7 @@ export const updateAppointment = async (id: number, data: UpdateAppointmentReque
  * cho cùng lịch hẹn, ta trả về bản ghi cũ thay vì tạo trùng. Bệnh nhân không có hồ sơ bệnh
  * án (dữ liệu cũ) thì bỏ qua — không chặn việc hoàn thành lịch hẹn vì lý do này.
  */
-const createVisitFromCompletedAppointment = async (appt: any, transaction: any) => {
+const createVisitFromCompletedAppointment = async (appt: any, transaction: any, treatedQuantity?: number) => {
   const profile = await PatientProfile.findOne({
     where: { userId: appt.patientId },
     transaction,
@@ -429,6 +429,10 @@ const createVisitFromCompletedAppointment = async (appt: any, transaction: any) 
   if (!visit) {
     const service = appt.service;
     const serviceName = service?.name || 'Khám nha khoa';
+    // Số lượng đơn vị đã điều trị thực tế (VD: số răng đã bọc sứ) — chỉ bác sĩ mới biết chính
+    // xác con số này SAU khi khám, nên được truyền vào lúc xác nhận hoàn thành ca khám, không
+    // phải từ lúc đặt lịch. Mặc định 1 đơn vị nếu không truyền (dịch vụ tính trọn gói/theo lần).
+    const quantity = Number(treatedQuantity) > 0 ? Number(treatedQuantity) : 1;
 
     visit = await TreatmentHistory.create({
       patientProfileId: profile.id,
@@ -436,7 +440,8 @@ const createVisitFromCompletedAppointment = async (appt: any, transaction: any) 
       appointmentId: appt.id,
       diagnosis: appt.chiefComplaint?.trim() || serviceName,
       treatment: serviceName,
-      cost: Number(service?.price) || 0,
+      cost: (Number(service?.price) || 0) * quantity,
+      treatedQuantity: quantity,
       treatmentDate: new Date(),
       notes: appt.notes ?? null,
     }, { transaction });
@@ -453,7 +458,7 @@ const createVisitFromCompletedAppointment = async (appt: any, transaction: any) 
   return visit;
 };
 
-export const updateAppointmentStatus = async (id: number, status: AppointmentStatus, cancelReason?: string, notes?: string) => {
+export const updateAppointmentStatus = async (id: number, status: AppointmentStatus, cancelReason?: string, notes?: string, treatedQuantity?: number) => {
   const appt = await appointmentRepository.findById(id);
   if (!appt) {
     throw new AppError('Không tìm thấy lịch hẹn.', 404);
@@ -524,7 +529,7 @@ export const updateAppointmentStatus = async (id: number, status: AppointmentSta
     // "Lịch sử khám" (đọc từ TreatmentHistory) sẽ luôn rỗng dù bệnh nhân đã khám nhiều lần,
     // và đơn thuốc cũng không có lần khám nào để gắn treatmentHistoryId.
     if (status === AppointmentStatus.COMPLETED) {
-      await createVisitFromCompletedAppointment(appt, t);
+      await createVisitFromCompletedAppointment(appt, t, treatedQuantity);
     }
   });
 

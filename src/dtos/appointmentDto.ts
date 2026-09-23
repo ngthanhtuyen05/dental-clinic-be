@@ -31,6 +31,9 @@ export interface UpdateAppointmentRequestDto {
 export interface UpdateAppointmentStatusRequestDto {
   status: AppointmentStatus;
   cancelReason?: string;
+  notes?: string;
+  /** Số lượng đơn vị đã điều trị thực tế (VD: số răng đã bọc sứ) — chỉ có ý nghĩa khi status = completed. */
+  treatedQuantity?: number;
 }
 
 export interface AppointmentQueryParamsDto {
@@ -69,7 +72,8 @@ export class AppointmentResponseDto {
   public serviceId: number;
   public serviceName: string;
   public servicePrice: number;
-  public service?: { id: number; name: string; price: number };
+  public serviceUnit?: string;
+  public service?: { id: number; name: string; price: number; unit?: string };
 
   public appointmentDate: string;
   public startTime: string;
@@ -107,10 +111,12 @@ export class AppointmentResponseDto {
     this.serviceId = appointment.serviceId;
     this.serviceName = appointment.service ? appointment.service.name : '';
     this.servicePrice = appointment.service ? Number(appointment.service.price || appointment.service.basePrice || 0) : 0;
+    this.serviceUnit = appointment.service ? appointment.service.unit : undefined;
     this.service = appointment.service ? {
       id: appointment.service.id,
       name: appointment.service.name,
       price: Number(appointment.service.price || appointment.service.basePrice || 0),
+      unit: appointment.service.unit,
     } : undefined;
 
     this.appointmentDate = appointment.appointmentDate;
