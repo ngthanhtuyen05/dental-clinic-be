@@ -75,6 +75,11 @@ export class AppointmentResponseDto {
   public serviceUnit?: string;
   public service?: { id: number; name: string; price: number; unit?: string };
 
+  /** Số lượng đơn vị (răng/hàm) đã điều trị thực tế — chỉ có khi lịch hẹn đã hoàn thành (đã sinh TreatmentHistory). */
+  public treatedQuantity?: number;
+  /** Chi phí lần khám đã tính = servicePrice × treatedQuantity — dùng để prefill đúng số tiền khi lập hóa đơn. */
+  public treatmentCost?: number;
+
   public appointmentDate: string;
   public startTime: string;
   public endTime: string;
@@ -118,6 +123,9 @@ export class AppointmentResponseDto {
       price: Number(appointment.service.price || appointment.service.basePrice || 0),
       unit: appointment.service.unit,
     } : undefined;
+
+    this.treatedQuantity = appointment.treatmentHistory ? Number(appointment.treatmentHistory.treatedQuantity) || 1 : undefined;
+    this.treatmentCost = appointment.treatmentHistory ? Number(appointment.treatmentHistory.cost) || 0 : undefined;
 
     this.appointmentDate = appointment.appointmentDate;
     this.startTime = appointment.startTime;

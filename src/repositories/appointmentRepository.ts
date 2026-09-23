@@ -1,7 +1,7 @@
 import Appointment from '../models/appointmentModel.js';
 import User from '../models/userModel.js';
 import Service from '../models/serviceModel.js';
-import { Prescription, PrescriptionItem, Product, StockBatch } from '../models/index.js';
+import { Prescription, PrescriptionItem, Product, StockBatch, TreatmentHistory } from '../models/index.js';
 import type { AppointmentModel } from '../models/appointmentModel.js';
 import { Op, type WhereOptions, type CreationAttributes, type Transaction } from 'sequelize';
 
@@ -52,6 +52,12 @@ export class AppointmentRepository {
         { model: User, as: 'dentist', attributes: ['id', 'fullName', 'email'] },
         { model: Service, as: 'service', attributes: ['id', 'name', 'price', 'durationMinutes', 'unit'] },
         { model: User, as: 'creator', attributes: ['id', 'fullName'] },
+        {
+          model: TreatmentHistory,
+          as: 'treatmentHistory',
+          attributes: ['id', 'cost', 'treatedQuantity'],
+          required: false,
+        },
         {
           model: Prescription,
           as: 'prescriptions',
